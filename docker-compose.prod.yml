@@ -15,7 +15,7 @@ services:
       context: ./frontend
       target: production
     ports:
-      - "80:80"
+      - "8484:80"
     depends_on:
       - backend
     restart: unless-stopped
