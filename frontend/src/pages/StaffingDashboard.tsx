@@ -504,7 +504,13 @@ function TrendMixCharts({ data, isLoading, catCol, catLabel, title, color, descr
         </div>
       )}
       <div style={hideMix ? {} : chartGridStyle}>
-        <ChartCard title={breakdown ? `${title} by ${catLabel}` : title}>
+        <ChartCard
+          title={breakdown ? `${title} by ${catLabel}` : title}
+          tableData={breakdown
+            ? multiRows.map(r => ({ 'Year': String(r.fiscal_year), ...Object.fromEntries(categories.map(c => [c, r[c] ?? 0])) }))
+            : singleRows.map(r => ({ 'Year': r.fiscal_year, 'Count': r.count }))
+          }
+        >
           {breakdown ? (
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={multiRows} margin={{ top: 5, right: 20, left: 10, bottom: 50 }}>
@@ -545,7 +551,10 @@ function TrendMixCharts({ data, isLoading, catCol, catLabel, title, color, descr
           )}
         </ChartCard>
         {!hideMix && (
-          <ChartCard title={`Mix by ${catLabel}`}>
+          <ChartCard
+            title={`Mix by ${catLabel}`}
+            tableData={barRows.map(r => ({ 'Year': String(r.fiscal_year), ...Object.fromEntries(categories.map(c => [c, r[c] ?? 0])) }))}
+          >
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
               <button onClick={() => setPct(v => !v)} style={{
                 padding: '3px 10px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
