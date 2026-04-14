@@ -451,32 +451,7 @@ export default function DepartmentOverview() {
     };
   }, [data]);
 
-  const { advTypeRows, advTypes } = useMemo(() => {
-    if (!data) return { advTypeRows: [], advTypes: [] as string[] };
-    const totals: Record<string, number> = {};
-    data.adv_by_type.forEach(r => {
-      totals[r.adv_e] = (totals[r.adv_e] ?? 0) + (r.count ?? 0);
-    });
-    const topTypes = Object.entries(totals)
-      .sort(([, a], [, b]) => b - a)
-      .map(([k]) => k);
-    const map: Record<string, Record<string, unknown>> = {};
-    data.adv_by_type.forEach(r => {
-      if (!map[r.fiscal_year]) map[r.fiscal_year] = { fiscal_year: r.fiscal_year };
-      map[r.fiscal_year][r.adv_e] = r.count;
-    });
-    return {
-      advTypeRows: Object.values(map).sort((a, b) =>
-        String(a.fiscal_year).localeCompare(String(b.fiscal_year)),
-      ),
-      advTypes: topTypes,
-    };
-  }, [data]);
 
-  const appsTrend = useMemo(
-    () => (data?.applications_trend ?? []).map(r => ({ fiscal_year: r.fiscal_year, Applications: r.total })),
-    [data],
-  );
 
   // Merge applications trend with ad count totals (summed from adv_by_type) for combo chart
   // Derive advertisement count KPI from adv_by_type (sum across types per fiscal year)
@@ -537,7 +512,7 @@ export default function DepartmentOverview() {
             ref={inputRef}
             value={deptInput}
             onChange={e => { setDeptInput(e.target.value); setDropdownOpen(true); }}
-            onFocus={() => setDropdownOpen(true)}
+            onFocus={e => { setDropdownOpen(true); e.currentTarget.style.borderColor = '#1d3557'; }}
             onKeyDown={e => { if (e.key === 'Escape') setDropdownOpen(false); }}
             placeholder="Search department… (default: PS Total)"
             style={{
@@ -547,7 +522,6 @@ export default function DepartmentOverview() {
               background: deptInput ? '#fff' : '#fafafa', color: '#111827',
               transition: 'border-color 0.15s',
             }}
-            onFocus={e => { e.currentTarget.style.borderColor = '#1d3557'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#e5e7eb'; }}
           />
           {deptInput && (

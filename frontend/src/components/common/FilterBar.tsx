@@ -57,14 +57,6 @@ export default function FilterBar({ filters, onChange, availableYears }: FilterB
   const years = availableYears ?? DEFAULT_YEARS;
   const [local, setLocal] = useState<FilterState>(filters);
 
-  const handleYearToggle = (year: string) => {
-    const current = local.fiscal_year ?? [];
-    const next = current.includes(year)
-      ? current.filter(y => y !== year)
-      : [...current, year];
-    setLocal(prev => ({ ...prev, fiscal_year: next.length ? next : undefined }));
-  };
-
   const handleApply = () => onChange(local);
 
   const handleClear = () => {

@@ -205,7 +205,6 @@ export default function ProcessDetail() {
             boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
             transition: 'border-color 0.15s',
           }}
-          onFocus={e => { e.currentTarget.style.borderColor = '#1d3557'; e.currentTarget.style.background = '#fff'; }}
           onBlur={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.background = '#fafafa'; }}
         />
         {open && suggestions.length > 0 && (
@@ -289,7 +288,7 @@ export default function ProcessDetail() {
                 <div style={{ fontSize: 11.5, fontFamily: 'monospace', color: '#6b7280', fontWeight: 600, marginBottom: 4, letterSpacing: '0.04em' }}>
                   {process.selection_process_number ? fmt(process.selection_process_number) : fmt(process.reference_number)}
                 </div>
-                {process.selection_process_number && process.reference_number && (
+                {Boolean(process.selection_process_number) && Boolean(process.reference_number) && (
                   <div style={{ fontSize: 10.5, fontFamily: 'monospace', color: '#9ca3af', marginBottom: 6 }}>
                     Ref: {fmt(process.reference_number)}
                   </div>
