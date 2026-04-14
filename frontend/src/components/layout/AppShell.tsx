@@ -73,7 +73,7 @@ export default function AppShell() {
         background: '#1d3557', color: '#fff',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 16px 0 20px',
-        zIndex: 100,
+        zIndex: 210,
         boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -83,13 +83,17 @@ export default function AppShell() {
               aria-label="Toggle navigation"
               style={{
                 background: 'none', border: 'none', color: '#fff',
-                cursor: 'pointer', padding: 6, display: 'flex',
-                flexDirection: 'column', gap: 5, flexShrink: 0,
+                cursor: 'pointer', padding: 6, flexShrink: 0,
+                fontSize: 22, lineHeight: 1, width: 34, textAlign: 'center',
               }}
             >
-              <span style={{ display: 'block', width: 22, height: 2, background: '#fff', borderRadius: 2 }} />
-              <span style={{ display: 'block', width: 22, height: 2, background: '#fff', borderRadius: 2 }} />
-              <span style={{ display: 'block', width: 22, height: 2, background: '#fff', borderRadius: 2 }} />
+              {drawerOpen ? '✕' : (
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <span style={{ display: 'block', width: 22, height: 2, background: '#fff', borderRadius: 2 }} />
+                  <span style={{ display: 'block', width: 22, height: 2, background: '#fff', borderRadius: 2 }} />
+                  <span style={{ display: 'block', width: 22, height: 2, background: '#fff', borderRadius: 2 }} />
+                </span>
+              )}
             </button>
           )}
           <h1 style={{ fontSize: isMobile ? 15 : 18, fontWeight: 700, letterSpacing: '0.01em', margin: 0 }}>
