@@ -1,0 +1,73 @@
+{
+  "nav": {
+    "datasets": "Ensembles de données",
+    "explore": "Explorateur visuel",
+    "funnel": "Entonnoir de recrutement",
+    "query": "Explorateur de données",
+    "admin": "Ingestion des données",
+    "staffing": "Tableau de bord de la dotation",
+    "department": "Aperçu du ministère",
+    "process": "Recherche de processus"
+  },
+  "datasets": {
+    "title": "Ensembles de données disponibles",
+    "subtitle": "Données ouvertes de la Commission de la fonction publique",
+    "lastIngested": "Dernière ingestion",
+    "records": "enregistrements",
+    "frequency": "Fréquence",
+    "viewSource": "Voir sur ouvert.canada.ca",
+    "ingest": "Actualiser les données"
+  },
+  "funnel": {
+    "title": "Processus de recrutement",
+    "subtitle": "De l'annonce à la nomination",
+    "advertisements": "Annonces",
+    "applicants": "Candidatures soumises",
+    "screenedIn": "Candidats retenus",
+    "appointed": "Nommés",
+    "avgApplicants": "Moy. candidats par annonce",
+    "screenedInRate": "Taux de présélection",
+    "appointmentRate": "Taux de nomination",
+    "byRegion": "Par région",
+    "overall": "Global"
+  },
+  "explorer": {
+    "title": "Explorateur visuel",
+    "selectDataset": "Sélectionner l'ensemble",
+    "selectDimension": "Sélectionner la dimension",
+    "advertisements": "Annonces",
+    "staffing": "Tableau de bord de dotation",
+    "overTime": "Dans le temps",
+    "byType": "Par type",
+    "byDemographic": "Par démographie",
+    "fiscalYear": "Année fiscale"
+  },
+  "query": {
+    "title": "Interroger les données",
+    "selectDataset": "Ensemble de données",
+    "filters": "Filtres",
+    "export": "Exporter en CSV",
+    "noData": "Aucune donnée disponible.",
+    "loading": "Chargement..."
+  },
+  "ingestion": {
+    "title": "Ingestion des données",
+    "subtitle": "Déclencher l'actualisation depuis ouvert.canada.ca",
+    "ingestAll": "Ingérer tous les ensembles",
+    "status": "Statut",
+    "running": "En cours",
+    "success": "Succès",
+    "error": "Erreur",
+    "pending": "En attente",
+    "rowsLoaded": "lignes chargées",
+    "log": "Journal d'ingestion"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "error": "Une erreur s'est produite",
+    "noData": "Aucune donnée disponible",
+    "all": "Tous",
+    "apply": "Appliquer",
+    "clear": "Effacer"
+  }
+}

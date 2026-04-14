@@ -1,0 +1,73 @@
+{
+  "nav": {
+    "datasets": "Datasets",
+    "explore": "Visual Explorer",
+    "funnel": "Recruitment Funnel",
+    "query": "Data Explorer",
+    "admin": "Data Ingestion",
+    "staffing": "Staffing Dashboard",
+    "department": "Department Overview",
+    "process": "Process Lookup"
+  },
+  "datasets": {
+    "title": "Available Datasets",
+    "subtitle": "Public Service Commission open data sources",
+    "lastIngested": "Last ingested",
+    "records": "records",
+    "frequency": "Frequency",
+    "viewSource": "View on open.canada.ca",
+    "ingest": "Refresh Data"
+  },
+  "funnel": {
+    "title": "Recruitment Pipeline",
+    "subtitle": "From advertisement to appointment",
+    "advertisements": "Advertisements",
+    "applicants": "Applicants Submitted",
+    "screenedIn": "Screened In",
+    "appointed": "Appointed",
+    "avgApplicants": "Avg. applicants per ad",
+    "screenedInRate": "Screened-in rate",
+    "appointmentRate": "Appointment rate",
+    "byRegion": "By Region",
+    "overall": "Overall"
+  },
+  "explorer": {
+    "title": "Visual Explorer",
+    "selectDataset": "Select Dataset",
+    "selectDimension": "Select Dimension",
+    "advertisements": "Advertisements",
+    "staffing": "Staffing Dashboard",
+    "overTime": "Over Time",
+    "byType": "By Type",
+    "byDemographic": "By Demographic",
+    "fiscalYear": "Fiscal Year"
+  },
+  "query": {
+    "title": "Query Data",
+    "selectDataset": "Dataset",
+    "filters": "Filters",
+    "export": "Export CSV",
+    "noData": "No data available. Try adjusting your filters or ingesting data first.",
+    "loading": "Loading..."
+  },
+  "ingestion": {
+    "title": "Data Ingestion",
+    "subtitle": "Trigger data refresh from open.canada.ca",
+    "ingestAll": "Ingest All Datasets",
+    "status": "Status",
+    "running": "Running",
+    "success": "Success",
+    "error": "Error",
+    "pending": "Pending",
+    "rowsLoaded": "rows loaded",
+    "log": "Ingestion Log"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "noData": "No data available",
+    "all": "All",
+    "apply": "Apply",
+    "clear": "Clear"
+  }
+}
