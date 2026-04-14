@@ -192,6 +192,9 @@ const tabBarStyle: React.CSSProperties = {
   gap: 0,
   borderBottom: '2px solid #dee2e6',
   marginBottom: 24,
+  overflowX: 'auto',
+  WebkitOverflowScrolling: 'touch',
+  scrollbarWidth: 'none',
 };
 
 const chartGridStyle: React.CSSProperties = {
@@ -1290,7 +1293,7 @@ export default function StaffingDashboard() {
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             style={{
-              padding: '8px 18px',
+              padding: '8px 16px',
               border: 'none',
               borderBottom: activeTab === tab.key ? '2px solid #1d3557' : '2px solid transparent',
               background: 'none',
@@ -1299,6 +1302,8 @@ export default function StaffingDashboard() {
               fontSize: 14,
               cursor: 'pointer',
               marginBottom: -2,
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
             }}
           >
             {tab.label}
