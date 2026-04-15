@@ -90,14 +90,22 @@ function getHeadline(p: HeadlineParams): string {
     : 'Hiring and departures are balanced';
 
   const advDiff = p.advPctDept != null && p.advPctPs != null ? p.advPctDept - p.advPctPs : null;
+  const hiringUp     = p.hiringYoy  != null && p.hiringYoy  >= 20;
+  const hiringDown   = p.hiringYoy  != null && p.hiringYoy  <= -25;
+  const leavingUp    = p.leavingYoy != null && p.leavingYoy >= 15;
+  const leavingDown  = p.leavingYoy != null && p.leavingYoy <= -15;
 
   let modifier = '';
-  if (p.hiringYoy != null && p.hiringYoy <= -25)
+  if (hiringDown)
     modifier = 'despite a sharp decline in hiring';
-  else if (p.leavingYoy != null && p.leavingYoy >= 15)
+  else if (hiringUp && leavingDown)
+    modifier = 'driven by strong hiring growth and falling departures';
+  else if (leavingUp)
     modifier = 'driven by rising departures';
-  else if (p.hiringYoy != null && p.hiringYoy >= 20)
+  else if (hiringUp)
     modifier = 'driven by strong hiring growth';
+  else if (leavingDown)
+    modifier = 'driven by falling departures';
   else if (advDiff != null && advDiff <= -10)
     modifier = 'with greater reliance on non-advertised hiring';
   else if (advDiff != null && advDiff >= 10)
