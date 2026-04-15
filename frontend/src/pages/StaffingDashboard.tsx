@@ -14,7 +14,7 @@ import {
 } from '../api/staffing';
 import { useAdvertisementAggregate } from '../api/advertisements';
 import {
-  BarChart, Bar, LineChart, Line, Cell,
+  BarChart, Bar, LineChart, Line, Cell, ReferenceLine,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import ChartCard from '../components/charts/ChartCard';
@@ -440,6 +440,8 @@ function AdvertisementsTab({ filters }: TabProps) {
 
 // ── Shared trend+mix component used by Inflow, Outflow, Mobility, Demographics ──
 
+type Measure = 'count' | 'fytd' | 'pct' | 'pct_fytd';
+
 interface TrendMixProps {
   data: Row[];
   isLoading: boolean;
@@ -453,18 +455,43 @@ interface TrendMixProps {
 
 function TrendMixCharts({ data, isLoading, catCol, catLabel, title, color, description, hideMix }: TrendMixProps) {
   const [breakdown, setBreakdown] = useState(hideMix ?? false);
-  const [pct, setPct] = useState(false);
+  const [show100, setShow100] = useState(false);
+  const [measure, setMeasure] = useState<Measure>('count');
+
+  const isFytd = measure === 'fytd' || measure === 'pct_fytd';
+  const isPct  = measure === 'pct'  || measure === 'pct_fytd';
+
+  // Detect publishing quarter from data for label (e.g. Q3)
+  const qCount = useMemo(() => {
+    if (!data.length) return null;
+    const maxYear = data.reduce((max, r) => {
+      const y = String(r.fiscal_year ?? '');
+      return y > max ? y : max;
+    }, '');
+    const row = data.find(r => String(r.fiscal_year ?? '') === maxYear);
+    const m = String(row?.quarter ?? '').match(/^Q(\d)$/);
+    return m ? parseInt(m[1]) : null;
+  }, [data]);
+
+  const qLabel = qCount ? ` - Q${qCount}` : '';
+  const MEASURES: { key: Measure; label: string }[] = [
+    { key: 'count',    label: 'Count' },
+    { key: 'fytd',     label: `Count, FYTD${qLabel}` },
+    { key: 'pct',      label: '% Change' },
+    { key: 'pct_fytd', label: `% Change, FYTD${qLabel}` },
+  ];
 
   const partialYear = useMemo(() => detectPartialYear(data as Record<string, unknown>[]), [data]);
   const formatFY = (v: string) => v === partialYear ? `${v} FYTD` : v;
 
+  // Use qtr_count when FYTD measure is selected
   const flat = useMemo(() =>
     data.map(r => ({
       x: String(r.fiscal_year ?? ''),
       category: String(r[catCol] ?? 'Unknown'),
-      y: Number(r.count ?? 0),
+      y: Number(isFytd ? (r.qtr_count ?? r.count ?? 0) : (r.count ?? 0)),
     })),
-    [data, catCol],
+    [data, catCol, isFytd],
   );
 
   const { rows: multiRows, categories } = useMemo(
@@ -479,20 +506,48 @@ function TrendMixCharts({ data, isLoading, catCol, catLabel, title, color, descr
       .map(([fiscal_year, count]) => ({ fiscal_year, count }));
   }, [flat]);
 
-  const splitRows = useMemo(() => splitPartial(singleRows, 'count', partialYear), [singleRows, partialYear]);
+  // Apply YoY % change (drops the first year — no prior to compare against)
+  const displaySingleRows = useMemo(() => {
+    if (!isPct) return singleRows;
+    return singleRows.slice(1).map((r, i) => {
+      const prior = singleRows[i].count;
+      return {
+        fiscal_year: r.fiscal_year,
+        count: prior ? Math.round((r.count - prior) / Math.abs(prior) * 1000) / 10 : 0,
+      };
+    });
+  }, [singleRows, isPct]);
 
-  const pctRows = useMemo(() =>
-    multiRows.map(row => {
+  const displayMultiRows = useMemo(() => {
+    if (!isPct) return multiRows;
+    return multiRows.slice(1).map((row, i) => {
+      const prior = multiRows[i];
+      const out: Record<string, string | number> = { fiscal_year: row.fiscal_year };
+      for (const cat of categories) {
+        const curr = Number(row[cat]) || 0;
+        const prev = Number(prior[cat]) || 0;
+        out[cat] = prev ? Math.round((curr - prev) / Math.abs(prev) * 1000) / 10 : 0;
+      }
+      return out;
+    });
+  }, [multiRows, categories, isPct]);
+
+  const splitRows = useMemo(() => splitPartial(displaySingleRows, 'count', partialYear), [displaySingleRows, partialYear]);
+
+  const stackedPctRows = useMemo(() =>
+    displayMultiRows.map(row => {
       const total = categories.reduce((s, c) => s + (Number(row[c]) || 0), 0);
       if (!total) return row;
       const out: Record<string, string | number> = { fiscal_year: row.fiscal_year };
       for (const c of categories) out[c] = Math.round((Number(row[c]) || 0) / total * 1000) / 10;
       return out;
     }),
-    [multiRows, categories],
+    [displayMultiRows, categories],
   );
 
-  const barRows = pct ? pctRows : multiRows;
+  const barRows = show100 ? stackedPctRows : displayMultiRows;
+
+  const yTickFmt = isPct ? (v: number) => `${v}%` : undefined;
 
   if (isLoading) return <LoadingSpinner />;
   if (!data.length) return <p style={{ color: '#6c757d' }}>No data. Try ingesting first.</p>;
@@ -504,29 +559,47 @@ function TrendMixCharts({ data, isLoading, catCol, catLabel, title, color, descr
           {description}
         </p>
       )}
-      {!hideMix && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-          <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div>
+          <div style={{ fontSize: 11, color: '#6c757d', marginBottom: 4 }}>Measure</div>
+          <div style={subTabBarStyle}>
+            {MEASURES.map(m => (
+              <button key={m.key} onClick={() => setMeasure(m.key)}
+                style={{
+                  padding: '4px 12px', borderRadius: 4, border: '1px solid', fontSize: 12, cursor: 'pointer',
+                  borderColor: measure === m.key ? '#2a9d8f' : '#ced4da',
+                  background: measure === m.key ? '#2a9d8f' : '#fff',
+                  color: measure === m.key ? '#fff' : '#495057',
+                  fontWeight: measure === m.key ? 600 : 400,
+                  flexShrink: 0,
+                }}
+              >{m.label}</button>
+            ))}
+          </div>
+        </div>
+        {!hideMix && (
+          <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', paddingBottom: 2 }}>
             <input type="checkbox" checked={breakdown} onChange={e => setBreakdown(e.target.checked)} />
             Show by {catLabel}
           </label>
-        </div>
-      )}
-      <div style={hideMix ? {} : chartGridStyle}>
+        )}
+      </div>
+      <div style={hideMix || isPct ? {} : chartGridStyle}>
         <ChartCard
           title={breakdown ? `${title} by ${catLabel}` : title}
           tableData={breakdown
-            ? multiRows.map(r => ({ 'Year': String(r.fiscal_year), ...Object.fromEntries(categories.map(c => [c, r[c] ?? 0])) }))
-            : singleRows.map(r => ({ 'Year': r.fiscal_year, 'Count': r.count }))
+            ? displayMultiRows.map(r => ({ 'Year': String(r.fiscal_year), ...Object.fromEntries(categories.map(c => [c, r[c] ?? 0])) }))
+            : displaySingleRows.map(r => ({ 'Year': r.fiscal_year, [isPct ? '% Change' : 'Count']: r.count }))
           }
         >
           {breakdown ? (
             <ResponsiveContainer width="100%" height={320}>
-              <LineChart data={multiRows} margin={{ top: 5, right: 20, left: 10, bottom: 50 }}>
+              <LineChart data={displayMultiRows} margin={{ top: 5, right: 20, left: 10, bottom: 50 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
                 <XAxis dataKey="fiscal_year" tickFormatter={formatFY} tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={yTickFmt} />
+                {isPct && <ReferenceLine y={0} stroke="#adb5bd" strokeDasharray="3 3" />}
+                <Tooltip formatter={isPct ? (v: number) => `${v}%` : undefined} />
                 <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} />
                 {categories.map((cat, i) => (
                   <Line key={cat} type="monotone" dataKey={cat}
@@ -540,7 +613,8 @@ function TrendMixCharts({ data, isLoading, catCol, catLabel, title, color, descr
               <LineChart data={splitRows} margin={{ top: 5, right: 20, left: 10, bottom: 50 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
                 <XAxis dataKey="fiscal_year" tickFormatter={formatFY} tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
-                <YAxis tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={yTickFmt} />
+                {isPct && <ReferenceLine y={0} stroke="#adb5bd" strokeDasharray="3 3" />}
                 <Tooltip
                   content={({ active, payload, label }) => {
                     if (!active || !payload?.length) return null;
@@ -548,7 +622,7 @@ function TrendMixCharts({ data, isLoading, catCol, catLabel, title, color, descr
                     return (
                       <div style={{ background: '#fff', border: '1px solid #dee2e6', padding: '8px 12px', borderRadius: 4, fontSize: 12 }}>
                         <div style={{ fontWeight: 600, marginBottom: 4 }}>{formatFY(String(label))}</div>
-                        <div style={{ color }}>{title}: {Number(val).toLocaleString()}</div>
+                        <div style={{ color }}>{title}: {isPct ? `${Number(val)}%` : Number(val).toLocaleString()}</div>
                       </div>
                     );
                   }}
@@ -559,24 +633,24 @@ function TrendMixCharts({ data, isLoading, catCol, catLabel, title, color, descr
             </ResponsiveContainer>
           )}
         </ChartCard>
-        {!hideMix && (
+        {!hideMix && !isPct && (
           <ChartCard
             title={`Breakdown by ${catLabel}`}
             tableData={barRows.map(r => ({ 'Year': String(r.fiscal_year), ...Object.fromEntries(categories.map(c => [c, r[c] ?? 0])) }))}
           >
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-              <button onClick={() => setPct(v => !v)} style={{
+              <button onClick={() => setShow100(v => !v)} style={{
                 padding: '3px 10px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
-                border: '1px solid', borderColor: pct ? '#1d3557' : '#ced4da',
-                background: pct ? '#1d3557' : '#fff', color: pct ? '#fff' : '#495057',
+                border: '1px solid', borderColor: show100 ? '#1d3557' : '#ced4da',
+                background: show100 ? '#1d3557' : '#fff', color: show100 ? '#fff' : '#495057',
               }}>100%</button>
             </div>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={barRows} margin={{ top: 5, right: 20, left: 10, bottom: 50 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
                 <XAxis dataKey="fiscal_year" tickFormatter={formatFY} tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={pct ? (v: number) => `${Math.round(v)}%` : undefined} domain={pct ? [0, 100] : undefined} />
-                <Tooltip formatter={pct ? (v: number) => `${v}%` : undefined} labelFormatter={formatFY} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={show100 ? (v: number) => `${Math.round(v)}%` : undefined} domain={show100 ? [0, 100] : undefined} />
+                <Tooltip formatter={show100 ? (v: number) => `${v}%` : undefined} labelFormatter={formatFY} />
                 <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} />
                 {categories.map((cat, i) => (
                   <Bar key={cat} dataKey={cat} stackId="a" fill={PALETTE[i % PALETTE.length]}>
