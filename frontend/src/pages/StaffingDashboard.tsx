@@ -1237,7 +1237,11 @@ function KpiCard({ label, rows, accent, qCount }: { label: string; rows: Summary
           padding: '5px 12px',
           background: '#eef0f3',
         }}>
-          <div style={{ fontSize: 16, fontWeight: 500, color: '#495057', lineHeight: 1, marginBottom: 2, display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 10, marginBottom: 4 }}>
+            <span style={{ color: '#495057', fontWeight: 500 }}>{prev.fiscal_year}</span>
+            <span style={{ color: '#adb5bd' }}> vs {prevPrev.fiscal_year}</span>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 500, color: '#495057', lineHeight: 1, display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
             {Math.round(prev.total).toLocaleString()}
             {fullPct !== null && (
               <span style={{ fontSize: 11, fontWeight: 600, color: fullUp ? '#2a9d8f' : fullDown ? '#e63946' : '#6c757d' }}>
@@ -1247,10 +1251,6 @@ function KpiCard({ label, rows, accent, qCount }: { label: string; rows: Summary
             <span style={{ fontSize: 10, fontWeight: 400, color: '#adb5bd' }}>
               vs {Math.round(prevPrev.total).toLocaleString()}
             </span>
-          </div>
-          <div style={{ fontSize: 10 }}>
-            <span style={{ color: '#495057', fontWeight: 500 }}>{prev.fiscal_year}</span>
-            <span style={{ color: '#adb5bd' }}> vs {prevPrev.fiscal_year}</span>
           </div>
         </div>
       )}
