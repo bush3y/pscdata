@@ -474,6 +474,40 @@ async def get_department_overview(department: str | None = None) -> dict:
         acting_ps  = acting_dept
         lateral_ps = lateral_dept
 
+    # ── Total inflow KPI (all hire types, for Snapshot page HIRING card) ────
+    total_inflow_dept = q(
+        "SELECT fiscal_year, SUM(count) AS total, SUM(qtr_count) AS qtr_total FROM dash_inflow "
+        "WHERE department_e = ? "
+        "GROUP BY fiscal_year ORDER BY fiscal_year DESC LIMIT 3",
+        [dept],
+    )
+    if not is_ps_total:
+        total_inflow_ps = q(
+            "SELECT fiscal_year, SUM(count) AS total, SUM(qtr_count) AS qtr_total FROM dash_inflow "
+            "WHERE department_e = 'Public Service - Total' "
+            "GROUP BY fiscal_year ORDER BY fiscal_year DESC LIMIT 3",
+        )
+    else:
+        total_inflow_ps = total_inflow_dept
+
+    # ── Advertised % (latest year, dept + PS) for Snapshot comparison table ─
+    def _adv_pct(d: str) -> float | None:
+        rows = q(
+            "SELECT adv_e, SUM(count) AS count FROM dash_adv_type "
+            "WHERE department_e = ? "
+            "  AND fiscal_year = (SELECT MAX(fiscal_year) FROM dash_adv_type WHERE department_e = ?) "
+            "GROUP BY adv_e",
+            [d, d],
+        )
+        total = sum((r["count"] or 0) for r in rows)
+        if total == 0:
+            return None
+        advertised = sum((r["count"] or 0) for r in rows if r["adv_e"] == "Advertised Process")
+        return round(advertised / total * 100, 1)
+
+    adv_pct_dept = _adv_pct(dept)
+    adv_pct_ps   = _adv_pct(ps) if not is_ps_total else adv_pct_dept
+
     # ── Workforce trend (all available years) ───────────────────────────────
     inflow_trend = q(
         "SELECT fiscal_year, SUM(count) AS total FROM dash_inflow "
@@ -646,13 +680,15 @@ async def get_department_overview(department: str | None = None) -> dict:
         "is_ps_total": is_ps_total,
         "q_count": q_count,
         "kpis": {
-            "new_indeterminate": {"dept": new_ind_dept, "ps": new_ind_ps},
-            "separations":       {"dept": sep_dept,     "ps": sep_ps},
-            "promotions":        {"dept": promo_dept,   "ps": promo_ps},
-            "acting":            {"dept": acting_dept,  "ps": acting_ps},
-            "lateral":           {"dept": lateral_dept, "ps": lateral_ps},
-            "applications":      {"dept": apps_dept,    "ps": apps_ps},
+            "new_indeterminate": {"dept": new_ind_dept,       "ps": new_ind_ps},
+            "separations":       {"dept": sep_dept,           "ps": sep_ps},
+            "promotions":        {"dept": promo_dept,         "ps": promo_ps},
+            "acting":            {"dept": acting_dept,        "ps": acting_ps},
+            "lateral":           {"dept": lateral_dept,       "ps": lateral_ps},
+            "applications":      {"dept": apps_dept,          "ps": apps_ps},
+            "total_inflow":      {"dept": total_inflow_dept,  "ps": total_inflow_ps},
         },
+        "adv_pct": {"dept": adv_pct_dept, "ps": adv_pct_ps},
         "ranks":         ranks,
         "tbs_headcount": tbs_headcount,
         "workforce_trend":   {"inflow": inflow_trend, "outflow": outflow_trend},
