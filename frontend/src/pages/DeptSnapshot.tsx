@@ -387,28 +387,29 @@ function StaffingProcessesModule({ adv_by_type }: {
   const advYoy = latest.pct != null && prior?.pct != null ? latest.pct - prior.pct : null;
 
   return (
-    <ModuleCard title="Staffing Processes" subtitle="Advertised vs non-advertised appointments">
-      <div style={{ fontSize: 24, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 6 }}>
-        {latest.advertised.toLocaleString()}
+    <ModuleCard title="Staffing Processes" subtitle="Share of appointments filled through advertised competition">
+      <div style={{ fontSize: 24, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12 }}>
+        {latest.pct != null ? `${latest.pct.toFixed(0)}%` : '—'}
         <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>advertised · {latest.fy}</span>
       </div>
-      {latest.pct != null && (
-        <div style={{ fontSize: 12.5, color: '#6b7280', marginBottom: 14 }}>
-          {latest.pct.toFixed(0)}% of all appointments
-          {advYoy != null && (
-            <span style={{ marginLeft: 6, color: Math.abs(advYoy) < 2 ? '#6b7280' : advYoy > 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
-              {advYoy > 0 ? '↑' : advYoy < 0 ? '↓' : '→'} {Math.abs(advYoy).toFixed(1)}pp vs prior year
-            </span>
-          )}
-        </div>
-      )}
+      <div style={{ marginBottom: 14 }}>
+        <KpiRow label="Advertised appointments" value={latest.advertised.toLocaleString()} />
+        <KpiRow label="Total appointments" value={latest.total.toLocaleString()} color="#9ca3af" />
+        {advYoy != null && (
+          <KpiRow
+            label="Change vs prior year"
+            value={`${advYoy > 0 ? '↑' : advYoy < 0 ? '↓' : '→'} ${Math.abs(advYoy).toFixed(1)} pts`}
+            color={Math.abs(advYoy) < 2 ? '#9ca3af' : advYoy > 0 ? '#15803d' : '#dc2626'}
+          />
+        )}
+      </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
         <thead>
           <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
             <th style={{ textAlign: 'left', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Year</th>
             <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Total</th>
             <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Advertised</th>
-            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>%</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>% advertised</th>
           </tr>
         </thead>
         <tbody>
@@ -454,39 +455,32 @@ function EERepresentationModule({ ee_snapshot, isPsTotal }: {
 
   const latest = years[0];
   const prior  = years[1];
-  const yoy    = latest.rate != null && prior?.rate != null ? latest.rate - prior.rate : null;
-  const vPs    = latest.rate != null && latest.ratePs != null ? latest.rate - latest.ratePs : null;
+  const yoy = latest.rate != null && prior?.rate != null ? latest.rate - prior.rate : null;
 
   return (
-    <ModuleCard title="EE Self-Identification in Hiring" subtitle={`% of new hires who self-identified as EE · ~1 yr data lag`}>
-      <div style={{ display: 'flex', gap: 20, marginBottom: 14 }}>
-        <div>
-          <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Latest rate</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#111827', lineHeight: 1 }}>
-            {latest.rate != null ? `${latest.rate.toFixed(1)}%` : '—'}
-          </div>
-          {yoy != null && (
-            <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4, color: Math.abs(yoy) < 0.5 ? '#6b7280' : yoy > 0 ? '#15803d' : '#dc2626' }}>
-              {yoy > 0 ? '↑' : yoy < 0 ? '↓' : '→'} {Math.abs(yoy).toFixed(1)}pp YoY
-            </div>
-          )}
-        </div>
-        {!isPsTotal && vPs != null && (
-          <div>
-            <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>vs PS avg</div>
-            <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1, color: Math.abs(vPs) < 1 ? '#6b7280' : vPs > 0 ? '#15803d' : '#dc2626' }}>
-              {vPs > 0 ? '+' : ''}{vPs.toFixed(1)}pp
-            </div>
-            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>PS: {latest.ratePs?.toFixed(1)}%</div>
-          </div>
+    <ModuleCard title="Employment Equity in Hiring" subtitle="Share of new hires who self-identified as belonging to an EE group · ~1 year data lag">
+      <div style={{ fontSize: 24, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12 }}>
+        {latest.rate != null ? `${latest.rate.toFixed(1)}%` : '—'}
+        <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>self-identified · {latest.fy}</span>
+      </div>
+      <div style={{ marginBottom: 14 }}>
+        {yoy != null && (
+          <KpiRow
+            label="Change vs prior year"
+            value={`${yoy > 0 ? '↑' : yoy < 0 ? '↓' : '→'} ${Math.abs(yoy).toFixed(1)} pts`}
+            color={Math.abs(yoy) < 0.5 ? '#9ca3af' : yoy > 0 ? '#15803d' : '#dc2626'}
+          />
+        )}
+        {!isPsTotal && latest.ratePs != null && (
+          <KpiRow label="PS average" value={`${latest.ratePs.toFixed(1)}%`} color="#9ca3af" />
         )}
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
         <thead>
           <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
             <th style={{ textAlign: 'left', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Year</th>
-            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>EE rate</th>
-            {!isPsTotal && <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>PS rate</th>}
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>This dept</th>
+            {!isPsTotal && <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>PS average</th>}
           </tr>
         </thead>
         <tbody>
@@ -552,34 +546,31 @@ function MobilityDetailModule({ mobility_trend, inflow_by_type }: {
   const mobYoy = latest.mobRate != null && prior?.mobRate != null ? latest.mobRate - prior.mobRate : null;
 
   return (
-    <ModuleCard title="Internal Staffing Movement" subtitle="Mobility actions and internal transfers as a share of total inflow">
-      <div style={{ display: 'flex', gap: 20, marginBottom: 14 }}>
-        <div>
-          <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Mobility rate</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#111827', lineHeight: 1 }}>
-            {latest.mobRate != null ? `${latest.mobRate.toFixed(0)}%` : '—'}
-          </div>
-          {mobYoy != null && (
-            <div style={{ fontSize: 12, color: Math.abs(mobYoy) < 1 ? '#6b7280' : mobYoy > 0 ? '#15803d' : '#dc2626', fontWeight: 600, marginTop: 4 }}>
-              {mobYoy > 0 ? '↑' : mobYoy < 0 ? '↓' : '→'} {Math.abs(mobYoy).toFixed(1)}pp YoY
-            </div>
-          )}
-        </div>
-        <div>
-          <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Internal transfers</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#111827', lineHeight: 1 }}>
-            {latest.internalPct != null ? `${latest.internalPct.toFixed(0)}%` : '—'}
-          </div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>of total inflow</div>
-        </div>
+    <ModuleCard title="Internal Staffing Movement" subtitle="Acting, promotions, and lateral moves as a share of total hiring">
+      <div style={{ fontSize: 24, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12 }}>
+        {latest.mobRate != null ? `${latest.mobRate.toFixed(0)}%` : '—'}
+        <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>mobility rate · {latest.fy}</span>
+      </div>
+      <div style={{ marginBottom: 14 }}>
+        <KpiRow label="Total mobility actions" value={latest.mobTotal.toLocaleString()} />
+        {latest.internalPct != null && (
+          <KpiRow label="Cross-org transfers" value={`${latest.internalPct.toFixed(0)}% of hiring`} color="#6b7280" />
+        )}
+        {mobYoy != null && (
+          <KpiRow
+            label="Change vs prior year"
+            value={`${mobYoy > 0 ? '↑' : mobYoy < 0 ? '↓' : '→'} ${Math.abs(mobYoy).toFixed(1)} pts`}
+            color={Math.abs(mobYoy) < 1 ? '#9ca3af' : mobYoy > 0 ? '#15803d' : '#dc2626'}
+          />
+        )}
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
         <thead>
           <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
             <th style={{ textAlign: 'left', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Year</th>
             <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Actions</th>
-            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Mob. rate</th>
-            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Int. transfers</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Mobility rate</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Cross-org transfers</th>
           </tr>
         </thead>
         <tbody>
@@ -1005,10 +996,6 @@ export default function DeptSnapshot() {
             </p>
           </div>
 
-          {/* ── Additional context modules ────────────────────────────────── */}
-          <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
-            Additional context
-          </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
             <StaffingProcessesModule adv_by_type={data.adv_by_type ?? []} />
             <MobilityDetailModule mobility_trend={data.mobility_trend ?? []} inflow_by_type={data.inflow_by_type ?? []} />
