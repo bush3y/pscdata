@@ -348,7 +348,13 @@ function AdvertisementsTab({ filters }: TabProps) {
       )}
 
       <div style={chartGridStyle}>
-        <ChartCard title={breakdown ? `${metricLabel} over time by ${dimLabel}` : `${metricLabel} over time`}>
+        <ChartCard
+          title={breakdown ? `${metricLabel} over time by ${dimLabel}` : `${metricLabel} over time`}
+          tableData={breakdown
+            ? multiRows.map(r => ({ 'Year': String(r.fiscal_year), ...Object.fromEntries(categories.map(c => [c, r[c] ?? 0])) }))
+            : singleRows.map(r => ({ 'Year': r.fiscal_year, [metricLabel]: r.value }))
+          }
+        >
           {trend2d.isLoading ? <LoadingSpinner /> : breakdown ? (
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={multiRows} margin={{ top: 5, right: 20, left: 10, bottom: 50 }}>
@@ -388,7 +394,10 @@ function AdvertisementsTab({ filters }: TabProps) {
             </ResponsiveContainer>
           )}
         </ChartCard>
-        <ChartCard title={`${metricLabel} by ${dimLabel} — annual mix`}>
+        <ChartCard
+          title={`${metricLabel} by ${dimLabel} — annual mix`}
+          tableData={multiRows.map(r => ({ 'Year': String(r.fiscal_year), ...Object.fromEntries(categories.map(c => [c, r[c] ?? 0])) }))}
+        >
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
             <button
               onClick={() => setPct(v => !v)}
@@ -664,7 +673,10 @@ function PriorityApptsChart({ data, isLoading }: { data: Row[]; isLoading: boole
 
   return (
     <div style={chartGridStyle}>
-      <ChartCard title="Priority appointments over time">
+      <ChartCard
+        title="Priority appointments over time"
+        tableData={rows.map(r => ({ 'Year': r.fiscal_year, 'Total indeterminate': r.count, 'Priority appointments': r.priority_count }))}
+      >
         <p style={{ fontSize: 12, color: '#6c757d', margin: '0 0 8px', lineHeight: 1.5 }}>
           Total indeterminate staffing actions each year (advertised + non-advertised), with priority appointments highlighted — showing how many were made under priority entitlements (e.g. surplus employees, persons with disabilities, veterans).
         </p>
@@ -680,7 +692,10 @@ function PriorityApptsChart({ data, isLoading }: { data: Row[]; isLoading: boole
           </LineChart>
         </ResponsiveContainer>
       </ChartCard>
-      <ChartCard title="Priority appointments as % of total indeterminate">
+      <ChartCard
+        title="Priority appointments as % of total indeterminate"
+        tableData={rows.map(r => ({ 'Year': r.fiscal_year, 'Priority %': r.count > 0 ? `${Math.round(r.priority_count / r.count * 1000) / 10}%` : '—' }))}
+      >
         <ResponsiveContainer width="100%" height={300}>
           <LineChart
             data={rows.map(r => ({ ...r, pct: r.count > 0 ? Math.round(r.priority_count / r.count * 1000) / 10 : 0 }))}
@@ -874,7 +889,10 @@ function ReappointmentsCharts({ data, isLoading }: { data: Row[]; isLoading: boo
 
   return (
     <div style={chartGridStyle}>
-      <ChartCard title="Indeterminate appointments & priority appointments">
+      <ChartCard
+        title="Indeterminate appointments & priority appointments"
+        tableData={rows.map(r => ({ 'Year': r.fiscal_year, 'Total indeterminate': r.count, 'Priority appointments': r.priority_count }))}
+      >
         <p style={{ fontSize: 12, color: '#6c757d', margin: '0 0 8px', lineHeight: 1.5 }}>
           Total indeterminate staffing actions each year (advertised + non-advertised), with priority appointments highlighted — showing how many were made under priority entitlements (e.g. surplus employees, persons with disabilities, veterans).
         </p>
@@ -939,7 +957,9 @@ function PrioritySnapshot({ data, isLoading }: { data: Row[]; isLoading: boolean
         A snapshot of the <strong>{total.toLocaleString()}</strong> people currently on the priority list as of {date}. Priority persons have a legal right to be considered for positions ahead of the general applicant pool — this includes employees who were laid off, injured on the job, or returned from leave. The charts show where these individuals are located and what types of jobs they held.
       </p>
       <div style={chartGridStyle}>
-        <ChartCard title="Priority persons by province">
+        <ChartCard title="Priority persons by province"
+          tableData={byProvince.map(r => ({ 'Province': r.province_e, 'Count': r.count }))}
+        >
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={byProvince} layout="vertical" margin={{ top: 5, right: 30, left: 80, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
@@ -950,7 +970,9 @@ function PrioritySnapshot({ data, isLoading }: { data: Row[]; isLoading: boolean
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
-        <ChartCard title="Top 15 classifications">
+        <ChartCard title="Top 15 classifications"
+          tableData={byClass.map(r => ({ 'Classification': r.class_e, 'Count': r.count }))}
+        >
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={byClass} layout="vertical" margin={{ top: 5, right: 30, left: 50, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
@@ -989,7 +1011,9 @@ function Vha1Charts({ data, isLoading }: { data: Row[]; isLoading: boolean }) {
 
   return (
     <div style={chartGridStyle}>
-      <ChartCard title="VHA — CAF applications to advertisements">
+      <ChartCard title="VHA — CAF applications to advertisements"
+        tableData={multiRows.map(r => ({ 'Year': String(r.fiscal_year), ...Object.fromEntries(categories.map(c => [c, r[c] ?? 0])) }))}
+      >
         <p style={{ fontSize: 12, color: '#6c757d', margin: '0 0 8px', lineHeight: 1.5 }}>
           How many Canadian Armed Forces (CAF) members and veterans applied to public service job postings each year, under the Veterans Hiring Act. Shows whether they applied to positions open only to current employees (internal) or to the general public (external).
         </p>
@@ -1006,7 +1030,9 @@ function Vha1Charts({ data, isLoading }: { data: Row[]; isLoading: boolean }) {
           </LineChart>
         </ResponsiveContainer>
       </ChartCard>
-      <ChartCard title="VHA — Applications by type (stacked)">
+      <ChartCard title="VHA — Applications by type (stacked)"
+        tableData={multiRows.map(r => ({ 'Year': String(r.fiscal_year), ...Object.fromEntries(categories.map(c => [c, r[c] ?? 0])) }))}
+      >
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={multiRows} margin={{ top: 5, right: 20, left: 10, bottom: 50 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
@@ -1056,7 +1082,9 @@ function Vha2Charts({ data, isLoading }: { data: Row[]; isLoading: boolean }) {
         Under the Veterans Hiring Act, CAF members and veterans can register as priority candidates for public service jobs. This shows how many registered each year (by priority type) and how many were ultimately appointed — giving a sense of how well the priority system is converting eligible veterans into public service hires.
       </p>
     <div style={chartGridStyle}>
-      <ChartCard title="VHA — Registrations by priority type">
+      <ChartCard title="VHA — Registrations by priority type"
+        tableData={registrations.rows.map(r => ({ 'Year': String(r.fiscal_year), ...Object.fromEntries(registrations.categories.map(c => [c, r[c] ?? 0])) }))}
+      >
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={registrations.rows} margin={{ top: 5, right: 20, left: 10, bottom: 50 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
@@ -1074,7 +1102,9 @@ function Vha2Charts({ data, isLoading }: { data: Row[]; isLoading: boolean }) {
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
-      <ChartCard title="VHA — Appointments by priority type">
+      <ChartCard title="VHA — Appointments by priority type"
+        tableData={appointments.rows.map(r => ({ 'Year': String(r.fiscal_year), ...Object.fromEntries(appointments.categories.map(c => [c, r[c] ?? 0])) }))}
+      >
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={appointments.rows} margin={{ top: 5, right: 20, left: 10, bottom: 50 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
@@ -1115,7 +1145,9 @@ function Vha3Charts({ data, isLoading }: { data: Row[]; isLoading: boolean }) {
 
   return (
     <div style={chartGridStyle}>
-      <ChartCard title="VHA — Eligible CAF members by reason">
+      <ChartCard title="VHA — Eligible CAF members by reason"
+        tableData={multiRows.map(r => ({ 'Year': String(r.fiscal_year), ...Object.fromEntries(categories.map(c => [c, r[c] ?? 0])) }))}
+      >
         <p style={{ fontSize: 12, color: '#6c757d', margin: '0 0 8px', lineHeight: 1.5 }}>
           How many Canadian Armed Forces members were eligible for veterans hiring preference each year, broken down by the reason they qualify. This gives a sense of the size of the eligible veteran population the Veterans Hiring Act is designed to support.
         </p>
@@ -1252,7 +1284,7 @@ function SummaryCards({ summary }: { summary: StaffingSummary }) {
 
 export default function StaffingDashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>('advertisements');
-  const [fiscalYears, setFiscalYears] = useState<string[]>([]);
+  const [fiscalYears, setFiscalYears] = useState<string[]>(() => FISCAL_YEARS.slice(-10));
   const [department, setDepartment] = useState('');
 
   const filters = useMemo(
