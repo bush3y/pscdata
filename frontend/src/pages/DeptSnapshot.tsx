@@ -522,10 +522,10 @@ export default function DeptSnapshot() {
     : null;
 
   // Status label
-  const status = leavingYoy != null && leavingYoy > 20 ? 'At risk'
+  const status = leavingYoy != null && leavingYoy > 20 ? 'Departures rising'
     : netChange === null ? 'Stable'
-    : netChange > 0 ? 'Growing'
-    : netChange < 0 ? 'Declining'
+    : netChange > 0 ? 'Net inflow'
+    : netChange < 0 ? 'Net outflow'
     : 'Stable';
 
   // Opinionated headline
@@ -637,7 +637,7 @@ export default function DeptSnapshot() {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
               <span style={{
                 fontSize: 11.5, fontWeight: 700,
-                color: status === 'Growing' ? '#15803d' : status === 'At risk' ? '#b45309' : status === 'Declining' ? '#dc2626' : '#475569',
+                color: status === 'Net inflow' ? '#15803d' : status === 'Departures rising' ? '#b45309' : status === 'Net outflow' ? '#dc2626' : '#475569',
                 textTransform: 'uppercase', letterSpacing: '0.05em',
               }}>
                 {status}
