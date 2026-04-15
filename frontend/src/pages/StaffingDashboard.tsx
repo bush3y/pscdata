@@ -1390,13 +1390,36 @@ export default function StaffingDashboard() {
             placeholder="All years…"
           />
         </div>
-        <div style={{ ...filterGroupStyle, maxWidth: 280 }}>
+        <div style={{ ...filterGroupStyle, minWidth: 260 }}>
           <span style={labelStyle}>Department</span>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
+            {([
+              { label: 'PS Total', value: '' },
+              { label: 'Micro avg', value: 'Micro - Average' },
+              { label: 'Small avg', value: 'Small - Average' },
+              { label: 'Medium avg', value: 'Medium - Average' },
+              { label: 'Large avg', value: 'Large - Average' },
+            ] as { label: string; value: string }[]).map(opt => (
+              <button
+                key={opt.label}
+                onClick={() => setDepartment(opt.value)}
+                style={{
+                  padding: '3px 9px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
+                  border: '1px solid',
+                  borderColor: department === opt.value ? '#1d3557' : '#ced4da',
+                  background: department === opt.value ? '#1d3557' : '#fff',
+                  color: department === opt.value ? '#fff' : '#495057',
+                  fontWeight: department === opt.value ? 600 : 400,
+                  flexShrink: 0,
+                }}
+              >{opt.label}</button>
+            ))}
+          </div>
           <input
             type="text"
             value={department}
             onChange={e => setDepartment(e.target.value)}
-            placeholder="Search department…"
+            placeholder="Or type a department name…"
             style={inputStyle}
           />
         </div>
