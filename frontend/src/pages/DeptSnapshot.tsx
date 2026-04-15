@@ -76,53 +76,34 @@ function sizeTierLabel(tier: string): string {
 // ── Opinionated headline ────────────────────────────────────────────────────
 
 interface HeadlineParams {
-  isPsTotal: boolean;
   net: number | null;
   hiringYoy: number | null;
   leavingYoy: number | null;
-  hiringVsPs: number | null; // dept hiring YoY - PS hiring YoY
-  leavingVsPs: number | null;
   advPctDept: number | null;
   advPctPs: number | null;
-  mobilityPct: number | null;
-  mobilityPctPs: number | null;
 }
 
 function getHeadline(p: HeadlineParams): string {
-  const advDiff    = p.advPctDept != null && p.advPctPs != null ? p.advPctDept - p.advPctPs : null;
-  const mobDiff    = p.mobilityPct != null && p.mobilityPctPs != null ? p.mobilityPct - p.mobilityPctPs : null;
+  const base = p.net == null ? 'Hiring and departures are balanced'
+    : p.net > 0 ? 'Hiring remains higher than departures'
+    : p.net < 0 ? 'Departures remain higher than hiring'
+    : 'Hiring and departures are balanced';
 
-  // Pattern 1: Hiring rising but shifting non-advertised
-  if (p.hiringYoy != null && p.hiringYoy > 3 && advDiff != null && advDiff <= -10)
-    return 'Hiring is up, but increasingly non-advertised';
+  const advDiff = p.advPctDept != null && p.advPctPs != null ? p.advPctDept - p.advPctPs : null;
 
-  // Pattern 2: Departures accelerating, net declining
-  if (p.leavingYoy != null && p.leavingYoy > 15 && p.net !== null && p.net < 0)
-    return 'Workforce declining — departures accelerating';
+  let modifier = '';
+  if (p.hiringYoy != null && p.hiringYoy <= -25)
+    modifier = 'despite a sharp decline in hiring';
+  else if (p.leavingYoy != null && p.leavingYoy >= 15)
+    modifier = 'driven by rising departures';
+  else if (p.hiringYoy != null && p.hiringYoy >= 20)
+    modifier = 'driven by strong hiring growth';
+  else if (advDiff != null && advDiff <= -10)
+    modifier = 'with greater reliance on non-advertised hiring';
+  else if (advDiff != null && advDiff >= 10)
+    modifier = 'with higher use of advertised hiring processes';
 
-  // Pattern 3: Below-average hiring but strong internal movement
-  if (!p.isPsTotal && p.hiringVsPs != null && p.hiringVsPs < -10 && mobDiff != null && mobDiff > 8)
-    return 'Below-average external hiring, but strong internal movement';
-
-  // Pattern 4: Above average growth with advertised hiring
-  if (!p.isPsTotal && p.hiringVsPs != null && p.hiringVsPs > 10 && advDiff != null && advDiff >= 0)
-    return 'Above-average growth through competitive, advertised hiring';
-
-  // Pattern 5: Growing faster than PS
-  if (!p.isPsTotal && p.hiringVsPs != null && p.hiringVsPs > 8)
-    return 'Hiring growing faster than the PS average';
-
-  // Pattern 6: Net direction
-  if (p.net !== null && p.net < 0 && p.leavingYoy != null && p.leavingYoy > p.hiringYoy!)
-    return 'Workforce shrinking — departures outpace hiring';
-
-  if (p.net !== null && p.net > 0)
-    return 'Workforce is growing';
-
-  if (p.net !== null && p.net < 0)
-    return 'Workforce is declining';
-
-  return 'Workforce is stable';
+  return modifier ? `${base}, ${modifier}.` : `${base}.`;
 }
 
 // ── PS comparison badge ─────────────────────────────────────────────────────
@@ -538,16 +519,11 @@ export default function DeptSnapshot() {
 
   // Opinionated headline
   const headline = data ? getHeadline({
-    isPsTotal,
     net: netChange,
     hiringYoy,
     leavingYoy,
-    hiringVsPs,
-    leavingVsPs,
     advPctDept: data.adv_pct.dept,
     advPctPs: data.adv_pct.ps,
-    mobilityPct,
-    mobilityPctPs,
   }) : null;
 
   // Peer metrics (for comparison table)
