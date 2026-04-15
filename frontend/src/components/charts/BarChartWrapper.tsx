@@ -43,7 +43,7 @@ export default function BarChartWrapper({ data, xKey, bars, yLabel }: BarChartWr
           label={yLabel ? { value: yLabel, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined}
         />
         <Tooltip />
-        <Legend verticalAlign="top" />
+        <Legend verticalAlign="bottom" />
         {bars.map(b => (
           <Bar key={b.key} dataKey={b.key} name={b.name} fill={b.color} radius={[3, 3, 0, 0]} />
         ))}

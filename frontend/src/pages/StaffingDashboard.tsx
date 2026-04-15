@@ -362,7 +362,7 @@ function AdvertisementsTab({ filters }: TabProps) {
                 <XAxis dataKey="fiscal_year" tickFormatter={formatFY} tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip labelFormatter={formatFY} />
-                <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11 }} />
+                <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} />
                 {categories.map((cat, i) => (
                   <Line key={cat} type="monotone" dataKey={cat}
                     stroke={PALETTE[i % PALETTE.length]} strokeWidth={2}
@@ -395,7 +395,7 @@ function AdvertisementsTab({ filters }: TabProps) {
           )}
         </ChartCard>
         <ChartCard
-          title={`${metricLabel} by ${dimLabel} — annual mix`}
+          title={`${metricLabel} by ${dimLabel}`}
           tableData={multiRows.map(r => ({ 'Year': String(r.fiscal_year), ...Object.fromEntries(categories.map(c => [c, r[c] ?? 0])) }))}
         >
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
@@ -420,7 +420,7 @@ function AdvertisementsTab({ filters }: TabProps) {
                   <XAxis dataKey="fiscal_year" tickFormatter={formatFY} tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
                   <YAxis tick={{ fontSize: 12 }} tickFormatter={pct ? (v: number) => `${Math.round(v)}%` : undefined} domain={pct ? [0, 100] : undefined} />
                   <Tooltip formatter={pct ? (v: number) => `${v}%` : undefined} labelFormatter={formatFY} />
-                  <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11 }} />
+                  <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} />
                   {categories.map((cat, i) => (
                     <Bar key={cat} dataKey={cat} stackId="a" fill={PALETTE[i % PALETTE.length]}>
                       {barRows.map((row, idx) => (
@@ -527,7 +527,7 @@ function TrendMixCharts({ data, isLoading, catCol, catLabel, title, color, descr
                 <XAxis dataKey="fiscal_year" tickFormatter={formatFY} tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11 }} />
+                <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} />
                 {categories.map((cat, i) => (
                   <Line key={cat} type="monotone" dataKey={cat}
                     stroke={PALETTE[i % PALETTE.length]} strokeWidth={2}
@@ -561,7 +561,7 @@ function TrendMixCharts({ data, isLoading, catCol, catLabel, title, color, descr
         </ChartCard>
         {!hideMix && (
           <ChartCard
-            title={`Mix by ${catLabel}`}
+            title={`Breakdown by ${catLabel}`}
             tableData={barRows.map(r => ({ 'Year': String(r.fiscal_year), ...Object.fromEntries(categories.map(c => [c, r[c] ?? 0])) }))}
           >
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
@@ -577,7 +577,7 @@ function TrendMixCharts({ data, isLoading, catCol, catLabel, title, color, descr
                 <XAxis dataKey="fiscal_year" tickFormatter={formatFY} tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
                 <YAxis tick={{ fontSize: 12 }} tickFormatter={pct ? (v: number) => `${Math.round(v)}%` : undefined} domain={pct ? [0, 100] : undefined} />
                 <Tooltip formatter={pct ? (v: number) => `${v}%` : undefined} labelFormatter={formatFY} />
-                <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11 }} />
+                <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} />
                 {categories.map((cat, i) => (
                   <Bar key={cat} dataKey={cat} stackId="a" fill={PALETTE[i % PALETTE.length]}>
                     {barRows.map((row, idx) => (
@@ -686,7 +686,7 @@ function PriorityApptsChart({ data, isLoading }: { data: Row[]; isLoading: boole
             <XAxis dataKey="fiscal_year" tickFormatter={formatFY} tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip labelFormatter={formatFY} />
-            <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11 }} />
+            <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} />
             <Line type="monotone" dataKey="count" name="Total indeterminate" stroke="#1d3557" strokeWidth={2} dot={{ r: 3 }} />
             <Line type="monotone" dataKey="priority_count" name="Priority appointments" stroke="#e63946" strokeWidth={2} dot={{ r: 3 }} />
           </LineChart>
@@ -902,7 +902,7 @@ function ReappointmentsCharts({ data, isLoading }: { data: Row[]; isLoading: boo
             <XAxis dataKey="fiscal_year" tickFormatter={formatFY} tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip labelFormatter={formatFY} />
-            <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11 }} />
+            <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} />
             <Line type="monotone" dataKey="count" name="Total indeterminate" stroke="#1d3557" strokeWidth={2} dot={{ r: 3 }} />
             <Line type="monotone" dataKey="priority_count" name="Priority appointments" stroke="#e63946" strokeWidth={2} dot={{ r: 3 }} />
           </LineChart>
@@ -1023,7 +1023,7 @@ function Vha1Charts({ data, isLoading }: { data: Row[]; isLoading: boolean }) {
             <XAxis dataKey="fiscal_year" tickFormatter={formatFY} tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip labelFormatter={formatFY} />
-            <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11 }} />
+            <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} />
             {categories.map((cat, i) => (
               <Line key={cat} type="monotone" dataKey={cat} stroke={PALETTE[i % PALETTE.length]} strokeWidth={2} dot={{ r: 3 }} />
             ))}
@@ -1039,7 +1039,7 @@ function Vha1Charts({ data, isLoading }: { data: Row[]; isLoading: boolean }) {
             <XAxis dataKey="fiscal_year" tickFormatter={formatFY} tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip labelFormatter={formatFY} />
-            <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11 }} />
+            <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} />
             {categories.map((cat, i) => (
               <Bar key={cat} dataKey={cat} stackId="a" fill={PALETTE[i % PALETTE.length]}>
                 {multiRows.map((row, idx) => (
@@ -1091,7 +1091,7 @@ function Vha2Charts({ data, isLoading }: { data: Row[]; isLoading: boolean }) {
             <XAxis dataKey="fiscal_year" tickFormatter={formatFY} tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip labelFormatter={formatFY} />
-            <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11 }} />
+            <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} />
             {registrations.categories.map((cat, i) => (
               <Bar key={cat} dataKey={cat} stackId="a" fill={PALETTE[i % PALETTE.length]}>
                 {registrations.rows.map((row, idx) => (
@@ -1111,7 +1111,7 @@ function Vha2Charts({ data, isLoading }: { data: Row[]; isLoading: boolean }) {
             <XAxis dataKey="fiscal_year" tickFormatter={formatFY} tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip labelFormatter={formatFY} />
-            <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11 }} />
+            <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} />
             {appointments.categories.map((cat, i) => (
               <Bar key={cat} dataKey={cat} stackId="a" fill={PALETTE[i % PALETTE.length]}>
                 {appointments.rows.map((row, idx) => (
@@ -1157,7 +1157,7 @@ function Vha3Charts({ data, isLoading }: { data: Row[]; isLoading: boolean }) {
             <XAxis dataKey="fiscal_year" tickFormatter={formatFY} tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip labelFormatter={formatFY} />
-            <Legend verticalAlign="top" wrapperStyle={{ fontSize: 11 }} />
+            <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} />
             {categories.map((cat, i) => (
               <Line key={cat} type="monotone" dataKey={cat} stroke={PALETTE[i % PALETTE.length]} strokeWidth={2} dot={{ r: 3 }} />
             ))}

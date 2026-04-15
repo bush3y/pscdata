@@ -121,7 +121,7 @@ function StackedBarChart({ data, keys }: { data: Record<string, unknown>[]; keys
         <XAxis dataKey="fiscal_year" tick={{ fontSize: 10 }} angle={-35} textAnchor="end" />
         <YAxis tick={{ fontSize: 11 }} width={42} />
         <Tooltip />
-        <Legend verticalAlign="top" wrapperStyle={{ fontSize: 10.5, paddingBottom: 4 }} />
+        <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 10.5, paddingTop: 4 }} />
         {keys.map((k, i) => (
           <Bar key={k} dataKey={k} name={k} stackId="a" fill={HIRE_COLORS[i % HIRE_COLORS.length]} />
         ))}
@@ -679,7 +679,7 @@ export default function DepartmentOverview() {
                     />
                     <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} width={40} />
                     <Tooltip />
-                    <Legend verticalAlign="top" wrapperStyle={{ fontSize: 10.5, paddingBottom: 4 }} />
+                    <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 10.5, paddingTop: 4 }} />
                     <Bar yAxisId="right" dataKey="Advertisements" name="Advertisements" fill="#e9c46a" opacity={0.75} />
                     <Line yAxisId="left" type="monotone" dataKey="Applications" name="Applications" stroke="#457b9d" strokeWidth={2} dot={{ r: 3 }} />
                   </ComposedChart>
