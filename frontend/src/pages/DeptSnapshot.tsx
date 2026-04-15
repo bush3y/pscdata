@@ -16,28 +16,29 @@ interface SnapshotData {
   is_ps_total: boolean;
   q_count: number;
   kpis: {
-    total_inflow:  KpiGroup;
-    separations:   KpiGroup;
-    promotions:    KpiGroup;
-    acting:        KpiGroup;
-    lateral:       KpiGroup;
+    total_inflow: KpiGroup;
+    separations:  KpiGroup;
+    promotions:   KpiGroup;
+    acting:       KpiGroup;
+    lateral:      KpiGroup;
   };
   adv_pct: { dept: number | null; ps: number | null };
   workforce_trend: {
     inflow:  { fiscal_year: string; total: number | null }[];
     outflow: { fiscal_year: string; total: number | null }[];
   };
+  inflow_by_type: { fiscal_year: string; hire_e: string; count: number | null }[];
   tbs_headcount: { year: number; count: number } | null;
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
 function latestVal(arr: KpiSeries[]): number | null {
   return arr?.[0]?.total ?? null;
 }
 
 function yoyPct(arr: KpiSeries[], qCount: number): number | null {
-  const curr = arr?.[0]?.total;
+  const curr  = arr?.[0]?.total;
   const prior = arr?.[1];
   if (curr == null || prior == null) return null;
   const priorFytd = prior.qtr_total != null
@@ -47,148 +48,138 @@ function yoyPct(arr: KpiSeries[], qCount: number): number | null {
   return ((curr - priorFytd) / priorFytd) * 100;
 }
 
-function fmt(n: number | null, decimals = 0): string {
-  if (n == null) return '—';
-  return n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-}
-
-function fmtPct(n: number | null, decimals = 1): string {
-  if (n == null) return '—';
-  return `${n >= 0 ? '+' : ''}${n.toFixed(decimals)}%`;
-}
-
 function sizeTierFromHeadcount(hc: number): string {
-  if (hc < 100)   return 'Micro - Average';
-  if (hc < 500)   return 'Small - Average';
-  if (hc < 2000)  return 'Medium - Average';
+  if (hc < 100)  return 'Micro - Average';
+  if (hc < 500)  return 'Small - Average';
+  if (hc < 2000) return 'Medium - Average';
   return 'Large - Average';
 }
 
 function sizeTierLabel(tier: string): string {
-  if (tier === 'Micro - Average')  return 'Micro';
-  if (tier === 'Small - Average')  return 'Small';
-  if (tier === 'Medium - Average') return 'Medium';
-  if (tier === 'Large - Average')  return 'Large';
-  return 'Peer';
+  const map: Record<string, string> = {
+    'Micro - Average': 'Micro', 'Small - Average': 'Small',
+    'Medium - Average': 'Medium', 'Large - Average': 'Large',
+  };
+  return map[tier] ?? 'Peer';
 }
 
-// ── Status & insight ───────────────────────────────────────────────────────
+// ── Opinionated headline ────────────────────────────────────────────────────
 
-type Status = 'Growing' | 'Stable' | 'Declining' | 'At risk';
-
-function getStatus(net: number | null, leavingYoy: number | null): Status {
-  if (leavingYoy !== null && leavingYoy > 20) return 'At risk';
-  if (net === null) return 'Stable';
-  if (net > 0) return 'Growing';
-  if (net < 0) return 'Declining';
-  return 'Stable';
-}
-
-const STATUS_STYLE: Record<Status, { bg: string; border: string; color: string; icon: string }> = {
-  Growing:   { bg: '#f0fdf4', border: '#86efac', color: '#15803d', icon: '↑' },
-  Stable:    { bg: '#f8fafc', border: '#cbd5e1', color: '#475569', icon: '→' },
-  Declining: { bg: '#fff5f5', border: '#fca5a5', color: '#dc2626', icon: '↓' },
-  'At risk': { bg: '#fffbeb', border: '#fde68a', color: '#b45309', icon: '⚠' },
-};
-
-interface InsightParams {
+interface HeadlineParams {
   isPsTotal: boolean;
   net: number | null;
   hiringYoy: number | null;
   leavingYoy: number | null;
-  hiringYoyPs: number | null;
-  leavingYoyPs: number | null;
+  hiringVsPs: number | null; // dept hiring YoY - PS hiring YoY
+  leavingVsPs: number | null;
   advPctDept: number | null;
   advPctPs: number | null;
+  mobilityPct: number | null;
+  mobilityPctPs: number | null;
 }
 
-function buildInsight(p: InsightParams): string[] {
-  const sentences: string[] = [];
+function getHeadline(p: HeadlineParams): string {
+  const advDiff    = p.advPctDept != null && p.advPctPs != null ? p.advPctDept - p.advPctPs : null;
+  const mobDiff    = p.mobilityPct != null && p.mobilityPctPs != null ? p.mobilityPct - p.mobilityPctPs : null;
 
-  // Sentence 1: net direction
-  if (p.net !== null) {
-    if (p.net < 0) sentences.push('The workforce is shrinking.');
-    else if (p.net > 0) sentences.push('The workforce is growing.');
-    else sentences.push('The workforce is stable.');
-  }
+  // Pattern 1: Hiring rising but shifting non-advertised
+  if (p.hiringYoy != null && p.hiringYoy > 3 && advDiff != null && advDiff <= -10)
+    return 'Hiring is up, but increasingly non-advertised';
 
-  // Sentence 2: hiring vs leaving dynamics
-  if (p.hiringYoy !== null && p.leavingYoy !== null) {
-    const diff = p.leavingYoy - p.hiringYoy;
-    if (diff > 5) {
-      sentences.push('Departures are increasing faster than hiring.');
-    } else if (p.hiringYoy - p.leavingYoy > 5) {
-      sentences.push('Hiring is outpacing departures.');
-    } else if (!p.isPsTotal && p.hiringYoyPs !== null && p.leavingYoyPs !== null) {
-      const deptTrend = p.hiringYoy - p.leavingYoy;
-      const psTrend   = p.hiringYoyPs - p.leavingYoyPs;
-      if (deptTrend < psTrend - 5) {
-        sentences.push('Net flow is weaker than the PSC average.');
-      } else if (deptTrend > psTrend + 5) {
-        sentences.push('Net flow is stronger than the PSC average.');
-      }
-    }
-  }
+  // Pattern 2: Departures accelerating, net declining
+  if (p.leavingYoy != null && p.leavingYoy > 15 && p.net !== null && p.net < 0)
+    return 'Workforce declining — departures accelerating';
 
-  // Sentence 3: advertised % vs PSC (skip for PS Total)
-  if (!p.isPsTotal && p.advPctDept !== null && p.advPctPs !== null) {
-    const diff = p.advPctDept - p.advPctPs;
-    if (diff <= -10) {
-      sentences.push(
-        `Hiring relies more on non-advertised processes than the PSC average (${p.advPctDept.toFixed(0)}% vs ${p.advPctPs.toFixed(0)}% advertised).`
-      );
-    } else if (diff >= 10) {
-      sentences.push(
-        `Advertised processes are used more than the PSC average (${p.advPctDept.toFixed(0)}% vs ${p.advPctPs.toFixed(0)}%).`
-      );
-    }
-  }
+  // Pattern 3: Below-average hiring but strong internal movement
+  if (!p.isPsTotal && p.hiringVsPs != null && p.hiringVsPs < -10 && mobDiff != null && mobDiff > 8)
+    return 'Below-average external hiring, but strong internal movement';
 
-  return sentences;
+  // Pattern 4: Above average growth with advertised hiring
+  if (!p.isPsTotal && p.hiringVsPs != null && p.hiringVsPs > 10 && advDiff != null && advDiff >= 0)
+    return 'Above-average growth through competitive, advertised hiring';
+
+  // Pattern 5: Growing faster than PS
+  if (!p.isPsTotal && p.hiringVsPs != null && p.hiringVsPs > 8)
+    return 'Hiring growing faster than the PS average';
+
+  // Pattern 6: Net direction
+  if (p.net !== null && p.net < 0 && p.leavingYoy != null && p.leavingYoy > p.hiringYoy!)
+    return 'Workforce shrinking — departures outpace hiring';
+
+  if (p.net !== null && p.net > 0)
+    return 'Workforce is growing';
+
+  if (p.net !== null && p.net < 0)
+    return 'Workforce is declining';
+
+  return 'Workforce is stable';
 }
 
-// ── Components ─────────────────────────────────────────────────────────────
+// ── PS comparison badge ─────────────────────────────────────────────────────
 
-function KpiCard({
-  label, value, yoy, vsLabel, vsYoy, extra, netStatus,
-}: {
+function PsBadge({ diff, higherIsGood, suffix = 'pp' }: {
+  diff: number | null;
+  higherIsGood: boolean;
+  suffix?: string;
+}) {
+  if (diff == null) return null;
+  const abs   = Math.abs(diff);
+  const above = diff > 0;
+  const good  = higherIsGood ? above : !above;
+  const color = Math.abs(diff) < 2 ? '#6b7280' : good ? '#15803d' : '#dc2626';
+  const bg    = Math.abs(diff) < 2 ? '#f1f5f9' : good ? '#f0fdf4' : '#fff5f5';
+  const label = Math.abs(diff) < 2
+    ? 'At PS avg'
+    : `${above ? '+' : '−'}${abs.toFixed(0)}${suffix} vs PS`;
+
+  return (
+    <span style={{
+      display: 'inline-block', padding: '2px 7px', borderRadius: 4,
+      fontSize: 11, fontWeight: 600, color, background: bg,
+      marginTop: 4,
+    }}>
+      {label}
+    </span>
+  );
+}
+
+// ── KPI card ────────────────────────────────────────────────────────────────
+
+function KpiCard({ label, value, yoy, psYoy, extra, highlight }: {
   label: string;
   value: number | null;
   yoy: number | null;
-  vsLabel?: string;
-  vsYoy?: number | null;
+  psYoy?: number | null;
   extra?: React.ReactNode;
-  netStatus?: Status;
+  highlight?: boolean;
 }) {
-  const style = netStatus ? STATUS_STYLE[netStatus] : null;
+  const upColor   = '#16a34a';
+  const downColor = '#dc2626';
 
   return (
     <div style={{
       flex: 1, minWidth: 150,
-      background: style?.bg ?? '#fff',
-      border: `1.5px solid ${style?.border ?? '#e5e7eb'}`,
+      background: '#fff',
+      border: highlight ? '2px solid #1d3557' : '1.5px solid #e5e7eb',
       borderRadius: 10,
-      padding: '16px 18px',
-      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+      padding: '18px 20px',
+      boxShadow: highlight ? '0 2px 8px rgba(29,53,87,0.1)' : '0 1px 4px rgba(0,0,0,0.04)',
     }}>
-      <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+      <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
         {label}
       </div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: style?.color ?? '#111827', lineHeight: 1, marginBottom: 8 }}>
+      <div style={{ fontSize: highlight ? 32 : 26, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 10 }}>
         {value != null ? value.toLocaleString() : '—'}
-        {netStatus && value != null && (
-          <span style={{ fontSize: 14, marginLeft: 6 }}>{style?.icon}</span>
-        )}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {yoy !== null && (
-          <span style={{ fontSize: 12, fontWeight: 600, color: yoy >= 0 ? '#16a34a' : '#dc2626' }}>
-            {fmtPct(yoy)} YoY
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {yoy != null && (
+          <span style={{ fontSize: 13, fontWeight: 600, color: yoy >= 0 ? upColor : downColor }}>
+            {yoy >= 0 ? '↑' : '↓'} {Math.abs(yoy).toFixed(1)}% YoY
           </span>
         )}
-        {vsYoy !== null && vsYoy !== undefined && vsLabel && (
-          <span style={{ fontSize: 11, color: '#6b7280' }}>
-            {fmtPct(vsYoy)} {vsLabel}
+        {psYoy != null && (
+          <span style={{ fontSize: 11.5, color: '#6b7280' }}>
+            PS: {psYoy >= 0 ? '+' : ''}{psYoy.toFixed(1)}%
           </span>
         )}
         {extra}
@@ -197,108 +188,117 @@ function KpiCard({
   );
 }
 
-function MobilityCard({ mobilityPct, psMobilityPct, peerMobilityPct, peerLabel }: {
-  mobilityPct: number | null;
-  psMobilityPct: number | null;
-  peerMobilityPct?: number | null;
-  peerLabel?: string;
-}) {
+function NetCard({ net, status }: { net: number | null; status: string }) {
+  const positive = net !== null && net > 0;
+  const negative = net !== null && net < 0;
   return (
     <div style={{
       flex: 1, minWidth: 150,
-      background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10,
-      padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+      background: negative ? '#fff5f5' : positive ? '#f0fdf4' : '#fff',
+      border: `1.5px solid ${negative ? '#fca5a5' : positive ? '#86efac' : '#e5e7eb'}`,
+      borderRadius: 10,
+      padding: '18px 20px',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
     }}>
-      <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
-        Internal Movement
+      <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
+        Net Change
       </div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 8 }}>
-        {mobilityPct != null ? `${mobilityPct.toFixed(0)}%` : '—'}
+      <div style={{ fontSize: 26, fontWeight: 700, color: negative ? '#dc2626' : positive ? '#15803d' : '#111827', lineHeight: 1, marginBottom: 10 }}>
+        {net != null ? `${positive ? '+' : ''}${net.toLocaleString()}` : '—'}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {peerMobilityPct != null && peerLabel && (
-          <span style={{ fontSize: 11, color: '#6b7280' }}>
-            {peerLabel}: {peerMobilityPct.toFixed(0)}%
-          </span>
-        )}
-        {psMobilityPct != null && (
-          <span style={{ fontSize: 11, color: '#6b7280' }}>
-            PSC: {psMobilityPct.toFixed(0)}%
-          </span>
-        )}
-      </div>
+      <span style={{ fontSize: 12, fontWeight: 600, color: negative ? '#dc2626' : positive ? '#15803d' : '#6b7280' }}>
+        {status}
+      </span>
     </div>
   );
 }
 
-// ── Comparison table ───────────────────────────────────────────────────────
+// ── Hiring composition ───────────────────────────────────────────────────────
 
-interface CompRow {
-  label: string;
-  dept: string;
-  peer?: string;
-  ps: string;
-  deptNum?: number | null;
-  psNum?: number | null;
-  higherIsBetter?: boolean; // true = higher is green, false = lower is green, undefined = neutral
-}
+const HIRE_PALETTE = ['#1d3557', '#457b9d', '#2a9d8f', '#e9c46a', '#f4a261', '#e63946', '#adb5bd'];
 
-function ComparisonTable({ rows, deptName, peerLabel }: {
-  rows: CompRow[];
-  deptName: string;
-  peerLabel?: string;
-}) {
-  const hasPeer = rows.some(r => r.peer !== undefined);
+const HIRE_LABEL_SHORT: Record<string, string> = {
+  'New Indeterminate': 'New Indet.',
+  'New Term': 'New Term',
+  'Casual': 'Casual',
+  'Student': 'Student',
+  'Term to Indeterminate': 'Term → Indet.',
+  'Indeterminate from other organization': 'Indet. other org',
+  'Term from other organization': 'Term other org',
+};
 
-  function cellColor(deptNum: number | null | undefined, psNum: number | null | undefined, higherIsBetter: boolean | undefined): string {
-    if (deptNum == null || psNum == null || higherIsBetter == null) return '#374151';
-    if (higherIsBetter) return deptNum >= psNum ? '#15803d' : '#dc2626';
-    return deptNum <= psNum ? '#15803d' : '#dc2626';
-  }
+function HiringComposition({ inflow_by_type }: { inflow_by_type: { fiscal_year: string; hire_e: string; count: number | null }[] }) {
+  if (!inflow_by_type.length) return null;
+
+  const latestFy = inflow_by_type.reduce((max, r) => r.fiscal_year > max ? r.fiscal_year : max, '');
+  const latestRows = inflow_by_type.filter(r => r.fiscal_year === latestFy);
+  const total = latestRows.reduce((s, r) => s + (r.count ?? 0), 0);
+  if (total === 0) return null;
+
+  // Sort by count desc, keep top 6
+  const sorted = [...latestRows]
+    .sort((a, b) => (b.count ?? 0) - (a.count ?? 0))
+    .slice(0, 6);
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>
-        <thead>
-          <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-            <th style={{ textAlign: 'left', padding: '8px 12px', color: '#6b7280', fontWeight: 600, fontSize: 11 }}>Metric</th>
-            <th style={{ textAlign: 'right', padding: '8px 12px', color: '#1d3557', fontWeight: 700, fontSize: 11 }}>
-              {deptName.length > 30 ? 'This dept' : deptName}
-            </th>
-            {hasPeer && peerLabel && (
-              <th style={{ textAlign: 'right', padding: '8px 12px', color: '#6b7280', fontWeight: 600, fontSize: 11 }}>
-                {peerLabel}
-              </th>
-            )}
-            <th style={{ textAlign: 'right', padding: '8px 12px', color: '#6b7280', fontWeight: 600, fontSize: 11 }}>PSC Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={row.label} style={{ background: i % 2 === 1 ? '#f9fafb' : '#fff', borderBottom: '1px solid #f3f4f6' }}>
-              <td style={{ padding: '9px 12px', color: '#374151' }}>{row.label}</td>
-              <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600, color: cellColor(row.deptNum, row.psNum, row.higherIsBetter) }}>
-                {row.dept}
-              </td>
-              {hasPeer && (
-                <td style={{ padding: '9px 12px', textAlign: 'right', color: '#6b7280' }}>
-                  {row.peer ?? '—'}
-                </td>
-              )}
-              <td style={{ padding: '9px 12px', textAlign: 'right', color: '#6b7280' }}>{row.ps}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div style={{
+      border: '1px solid #e5e7eb', borderRadius: 8,
+      padding: '20px 24px', background: '#fff',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+      marginBottom: 0,
+    }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 2 }}>
+        What's driving hiring?
+      </div>
+      <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 18 }}>
+        Hiring breakdown by type · {latestFy}
+      </div>
+
+      {/* Stacked bar */}
+      <div style={{ height: 16, borderRadius: 4, overflow: 'hidden', display: 'flex', marginBottom: 16 }}>
+        {sorted.map((r, i) => {
+          const pct = total > 0 ? (r.count ?? 0) / total * 100 : 0;
+          return (
+            <div key={r.hire_e} style={{ width: `${pct}%`, background: HIRE_PALETTE[i % HIRE_PALETTE.length] }} />
+          );
+        })}
+      </div>
+
+      {/* Legend with bars */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {sorted.map((r, i) => {
+          const pct = total > 0 ? (r.count ?? 0) / total * 100 : 0;
+          const label = HIRE_LABEL_SHORT[r.hire_e] ?? r.hire_e;
+          return (
+            <div key={r.hire_e}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 2, background: HIRE_PALETTE[i % HIRE_PALETTE.length], display: 'inline-block', flexShrink: 0 }} />
+                  <span style={{ fontSize: 12.5, color: '#374151' }}>{label}</span>
+                </div>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: '#111827' }}>
+                  {pct.toFixed(0)}%
+                  <span style={{ fontSize: 11, fontWeight: 400, color: '#9ca3af', marginLeft: 5 }}>
+                    {(r.count ?? 0).toLocaleString()}
+                  </span>
+                </span>
+              </div>
+              <div style={{ height: 5, background: '#f3f4f6', borderRadius: 99 }}>
+                <div style={{ height: 5, width: `${pct}%`, background: HIRE_PALETTE[i % HIRE_PALETTE.length], borderRadius: 99 }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-// ── Department autocomplete (shared pattern) ───────────────────────────────
+// ── Department selector ─────────────────────────────────────────────────────
 
 function DeptSelector({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
-  const [input, setInput]       = useState('');
-  const [open, setOpen]         = useState(false);
+  const [input, setInput] = useState('');
+  const [open, setOpen]   = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef  = useRef<HTMLUListElement>(null);
 
@@ -308,7 +308,7 @@ function DeptSelector({ value, onChange }: { value: string | null; onChange: (v:
     staleTime: 5 * 60_000,
   });
 
-  const options = useMemo(() => ['All Public Service', ...departments], [departments]);
+  const options  = useMemo(() => ['All Public Service', ...departments], [departments]);
   const filtered = input.trim()
     ? options.filter(o => o.toLowerCase().includes(input.toLowerCase()))
     : options;
@@ -322,10 +322,7 @@ function DeptSelector({ value, onChange }: { value: string | null; onChange: (v:
     return () => document.removeEventListener('mousedown', handle);
   }, []);
 
-  // Sync display input when value changes externally
-  useEffect(() => {
-    setInput(value ?? '');
-  }, [value]);
+  useEffect(() => { setInput(value ?? ''); }, [value]);
 
   function select(opt: string) {
     const isTotal = opt === 'All Public Service';
@@ -335,7 +332,7 @@ function DeptSelector({ value, onChange }: { value: string | null; onChange: (v:
   }
 
   return (
-    <div style={{ position: 'relative', width: '100%', maxWidth: 420 }}>
+    <div style={{ position: 'relative', width: '100%', maxWidth: 440 }}>
       <input
         ref={inputRef}
         value={input}
@@ -345,7 +342,7 @@ function DeptSelector({ value, onChange }: { value: string | null; onChange: (v:
         onKeyDown={e => { if (e.key === 'Escape') setOpen(false); }}
         placeholder="All Public Service"
         style={{
-          width: '100%', padding: '8px 34px 8px 12px', fontSize: 13,
+          width: '100%', padding: '9px 34px 9px 14px', fontSize: 13,
           border: '1.5px solid #e5e7eb', borderRadius: 8,
           boxSizing: 'border-box', outline: 'none',
           background: '#fafafa', color: '#111827',
@@ -355,11 +352,7 @@ function DeptSelector({ value, onChange }: { value: string | null; onChange: (v:
       {input && (
         <button
           onClick={() => { setInput(''); onChange(null); setOpen(false); }}
-          style={{
-            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: '#9ca3af', fontSize: 18, padding: 0, lineHeight: 1,
-          }}
+          style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 18, padding: 0, lineHeight: 1 }}
         >×</button>
       )}
       {open && filtered.length > 0 && (
@@ -374,11 +367,7 @@ function DeptSelector({ value, onChange }: { value: string | null; onChange: (v:
             <li
               key={opt}
               onMouseDown={() => select(opt)}
-              style={{
-                padding: '8px 14px', fontSize: 13, cursor: 'pointer', color: '#374151',
-                fontWeight: opt === 'All Public Service' ? 600 : 400,
-                borderBottom: '1px solid #f3f4f6',
-              }}
+              style={{ padding: '8px 14px', fontSize: 13, cursor: 'pointer', color: '#374151', fontWeight: opt === 'All Public Service' ? 600 : 400, borderBottom: '1px solid #f3f4f6' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f3f8ff')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >{opt}</li>
@@ -389,13 +378,12 @@ function DeptSelector({ value, onChange }: { value: string | null; onChange: (v:
   );
 }
 
-// ── Main page ──────────────────────────────────────────────────────────────
+// ── Main page ───────────────────────────────────────────────────────────────
 
 export default function DeptSnapshot() {
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const isPsTotal = !selectedDept;
 
-  // Primary overview data
   const { data, isLoading } = useQuery<SnapshotData>({
     queryKey: ['dept-snapshot', selectedDept],
     queryFn: () =>
@@ -405,38 +393,34 @@ export default function DeptSnapshot() {
     staleTime: 60_000,
   });
 
-  // Determine peer size tier from TBS headcount
   const sizeTier = useMemo(() => {
     const hc = data?.tbs_headcount?.count;
     if (!hc || isPsTotal) return null;
     return sizeTierFromHeadcount(hc);
   }, [data, isPsTotal]);
 
-  // Fetch peer-tier data when we know the size
   const { data: peerData } = useQuery<SnapshotData>({
     queryKey: ['dept-snapshot-peer', sizeTier],
     queryFn: () =>
-      client.get('/staffing/department-overview', {
-        params: { department: sizeTier! },
-      }).then(r => r.data),
+      client.get('/staffing/department-overview', { params: { department: sizeTier! } }).then(r => r.data),
     enabled: !!sizeTier,
     staleTime: 5 * 60_000,
   });
 
-  // ── Derived metrics ────────────────────────────────────────────────────
+  // ── Computed values ──────────────────────────────────────────────────────
 
   const qCount = data?.q_count ?? 4;
 
   const hiringVal   = latestVal(data?.kpis.total_inflow.dept ?? []);
-  const leavingVal  = latestVal(data?.kpis.separations.dept ?? []);
+  const leavingVal  = latestVal(data?.kpis.separations.dept  ?? []);
   const netChange   = hiringVal != null && leavingVal != null ? hiringVal - leavingVal : null;
 
-  const hiringYoy   = yoyPct(data?.kpis.total_inflow.dept  ?? [], qCount);
-  const leavingYoy  = yoyPct(data?.kpis.separations.dept   ?? [], qCount);
-  const hiringYoyPs = yoyPct(data?.kpis.total_inflow.ps    ?? [], qCount);
-  const leavingYoyPs= yoyPct(data?.kpis.separations.ps     ?? [], qCount);
+  const hiringYoy    = yoyPct(data?.kpis.total_inflow.dept ?? [], qCount);
+  const leavingYoy   = yoyPct(data?.kpis.separations.dept  ?? [], qCount);
+  const hiringYoyPs  = yoyPct(data?.kpis.total_inflow.ps   ?? [], qCount);
+  const leavingYoyPs = yoyPct(data?.kpis.separations.ps    ?? [], qCount);
 
-  const mobilityVal  = useMemo(() => {
+  const mobilityVal = useMemo(() => {
     if (!data) return null;
     const p = latestVal(data.kpis.promotions.dept);
     const a = latestVal(data.kpis.acting.dept);
@@ -454,233 +438,195 @@ export default function DeptSnapshot() {
     return (p ?? 0) + (a ?? 0) + (l ?? 0);
   }, [data]);
 
-  const mobilityPct   = mobilityVal != null && hiringVal != null && hiringVal > 0 ? (mobilityVal / hiringVal) * 100 : null;
-  const mobilityPctPs = mobilityValPs != null && hiringYoyPs != null ? null : (() => {
-    const psHiring = latestVal(data?.kpis.total_inflow.ps ?? []);
-    if (!mobilityValPs || !psHiring || psHiring === 0) return null;
-    return (mobilityValPs / psHiring) * 100;
-  })();
+  const psHiringVal   = latestVal(data?.kpis.total_inflow.ps ?? []);
+  const mobilityPct   = mobilityVal != null && hiringVal   != null && hiringVal   > 0 ? (mobilityVal   / hiringVal)   * 100 : null;
+  const mobilityPctPs = mobilityValPs != null && psHiringVal != null && psHiringVal > 0 ? (mobilityValPs / psHiringVal) * 100 : null;
 
-  // Peer metrics
-  const peerHiringVal  = peerData ? latestVal(peerData.kpis.total_inflow.dept) : null;
-  const peerLeavingVal = peerData ? latestVal(peerData.kpis.separations.dept) : null;
-  const peerHiringYoy  = peerData ? yoyPct(peerData.kpis.total_inflow.dept, peerData.q_count) : null;
-  const peerLeavingYoy = peerData ? yoyPct(peerData.kpis.separations.dept, peerData.q_count) : null;
-  const peerMobVal     = peerData ? ((latestVal(peerData.kpis.promotions.dept) ?? 0) + (latestVal(peerData.kpis.acting.dept) ?? 0) + (latestVal(peerData.kpis.lateral.dept) ?? 0)) : null;
-  const peerMobPct     = peerMobVal != null && peerHiringVal != null && peerHiringVal > 0 ? (peerMobVal / peerHiringVal) * 100 : null;
-  const peerAdvPct     = peerData?.adv_pct.dept ?? null;
+  const hiringVsPs  = hiringYoy  != null && hiringYoyPs  != null ? hiringYoy  - hiringYoyPs  : null;
+  const leavingVsPs = leavingYoy != null && leavingYoyPs != null ? leavingYoy - leavingYoyPs : null;
 
-  const status  = getStatus(netChange, leavingYoy);
-  const insight = buildInsight({
+  const advDiff = data?.adv_pct.dept != null && data?.adv_pct.ps != null
+    ? data.adv_pct.dept - data.adv_pct.ps
+    : null;
+
+  // Status label
+  const status = leavingYoy != null && leavingYoy > 20 ? 'At risk'
+    : netChange === null ? 'Stable'
+    : netChange > 0 ? 'Growing'
+    : netChange < 0 ? 'Declining'
+    : 'Stable';
+
+  // Opinionated headline
+  const headline = data ? getHeadline({
     isPsTotal,
     net: netChange,
     hiringYoy,
     leavingYoy,
-    hiringYoyPs,
-    leavingYoyPs,
-    advPctDept: data?.adv_pct.dept ?? null,
-    advPctPs:   data?.adv_pct.ps   ?? null,
-  });
+    hiringVsPs,
+    leavingVsPs,
+    advPctDept: data.adv_pct.dept,
+    advPctPs: data.adv_pct.ps,
+    mobilityPct,
+    mobilityPctPs,
+  }) : null;
 
-  // ── Trend chart data ────────────────────────────────────────────────────
-
+  // Flow trend chart data
   const flowTrend = useMemo(() => {
     if (!data) return [];
     const map: Record<string, Record<string, unknown>> = {};
-    data.workforce_trend.inflow.forEach(r => {
-      map[r.fiscal_year] = { fiscal_year: r.fiscal_year, Hiring: r.total };
-    });
+    data.workforce_trend.inflow.forEach(r => { map[r.fiscal_year] = { fiscal_year: r.fiscal_year, Hiring: r.total }; });
     data.workforce_trend.outflow.forEach(r => {
       if (!map[r.fiscal_year]) map[r.fiscal_year] = { fiscal_year: r.fiscal_year };
       map[r.fiscal_year].Leaving = r.total;
     });
-    return Object.values(map).sort((a, b) =>
-      String(a.fiscal_year).localeCompare(String(b.fiscal_year)),
-    );
+    return Object.values(map).sort((a, b) => String(a.fiscal_year).localeCompare(String(b.fiscal_year)));
   }, [data]);
 
-  // ── Comparison table rows ───────────────────────────────────────────────
-
-  const compRows: CompRow[] = useMemo(() => {
-    if (!data) return [];
-    const psHiring = latestVal(data.kpis.total_inflow.ps);
-    const psLeaving = latestVal(data.kpis.separations.ps);
-
-    return [
-      {
-        label: 'Hiring (latest year)',
-        dept: fmt(hiringVal),
-        peer: fmt(peerHiringVal),
-        ps:   fmt(psHiring),
-        deptNum: hiringVal,
-        psNum: psHiring,
-        higherIsBetter: true,
-      },
-      {
-        label: 'Departures (latest year)',
-        dept: fmt(leavingVal),
-        peer: fmt(peerLeavingVal),
-        ps:   fmt(psLeaving),
-        deptNum: leavingVal,
-        psNum: psLeaving,
-        higherIsBetter: false,
-      },
-      {
-        label: 'Hiring YoY',
-        dept: fmtPct(hiringYoy),
-        peer: fmtPct(peerHiringYoy),
-        ps:   fmtPct(hiringYoyPs),
-        deptNum: hiringYoy,
-        psNum: hiringYoyPs,
-        higherIsBetter: true,
-      },
-      {
-        label: 'Departures YoY',
-        dept: fmtPct(leavingYoy),
-        peer: fmtPct(peerLeavingYoy),
-        ps:   fmtPct(leavingYoyPs),
-        deptNum: leavingYoy,
-        psNum: leavingYoyPs,
-        higherIsBetter: false,
-      },
-      {
-        label: 'Mobility rate',
-        dept: mobilityPct != null ? `${mobilityPct.toFixed(0)}%` : '—',
-        peer: peerMobPct  != null ? `${peerMobPct.toFixed(0)}%` : '—',
-        ps:   mobilityPctPs != null ? `${mobilityPctPs.toFixed(0)}%` : '—',
-      },
-      {
-        label: 'Advertised %',
-        dept: data.adv_pct.dept != null ? `${data.adv_pct.dept.toFixed(0)}%` : '—',
-        peer: peerAdvPct != null ? `${peerAdvPct.toFixed(0)}%` : '—',
-        ps:   data.adv_pct.ps  != null ? `${data.adv_pct.ps.toFixed(0)}%` : '—',
-        deptNum: data.adv_pct.dept,
-        psNum: data.adv_pct.ps,
-        higherIsBetter: undefined,
-      },
-    ];
-  }, [data, hiringVal, leavingVal, hiringYoy, leavingYoy, hiringYoyPs, leavingYoyPs, mobilityPct, mobilityPctPs, peerHiringVal, peerLeavingVal, peerHiringYoy, peerLeavingYoy, peerMobPct, peerAdvPct]);
-
+  const latestFy  = data?.kpis.total_inflow.dept?.[0]?.fiscal_year;
   const displayName = selectedDept ?? 'All Public Service';
-  const latestFy    = data?.kpis.total_inflow.dept?.[0]?.fiscal_year;
-  const statusStyle = STATUS_STYLE[status];
 
-  // ── Render ──────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ maxWidth: 900, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ maxWidth: 860, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
 
       {/* Header */}
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>
-          Department Snapshot
-        </h2>
-        <p style={{ margin: '0 0 14px', fontSize: 13, color: '#6b7280' }}>
-          What's happening in this department?
-        </p>
-        <DeptSelector value={selectedDept} onChange={setSelectedDept} />
-      </div>
+      <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>
+        Department Snapshot
+      </h2>
+      <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280' }}>
+        What's happening in this department?
+      </p>
+      <DeptSelector value={selectedDept} onChange={setSelectedDept} />
 
       {isLoading && (
-        <div style={{ padding: '40px 0', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-          Loading…
-        </div>
+        <div style={{ padding: '48px 0', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>Loading…</div>
       )}
 
       {data && (
         <>
-          {/* Status badge + period */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '4px 12px', borderRadius: 999,
-              background: statusStyle.bg, border: `1px solid ${statusStyle.border}`,
-              fontSize: 12.5, fontWeight: 700, color: statusStyle.color,
-            }}>
-              {statusStyle.icon} {status} workforce
-            </span>
-            {latestFy && (
-              <span style={{ fontSize: 12, color: '#9ca3af' }}>
-                {latestFy}{qCount < 4 ? ` FYTD Q${qCount}` : ''}
+          {/* ── Headline block ─────────────────────────────────────────────── */}
+          <div style={{ margin: '28px 0 24px', borderLeft: '4px solid #1d3557', paddingLeft: 16 }}>
+
+            {/* Status + period — small, above the headline */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+              <span style={{
+                fontSize: 11.5, fontWeight: 700,
+                color: status === 'Growing' ? '#15803d' : status === 'At risk' ? '#b45309' : status === 'Declining' ? '#dc2626' : '#475569',
+                textTransform: 'uppercase', letterSpacing: '0.05em',
+              }}>
+                {status}
               </span>
+              {latestFy && (
+                <span style={{ fontSize: 11.5, color: '#9ca3af' }}>
+                  · {latestFy}{qCount < 4 ? ` FYTD Q${qCount}` : ''}
+                </span>
+              )}
+              {sizeTier && !isPsTotal && (
+                <span style={{ fontSize: 11, color: '#6b7280', background: '#f1f5f9', borderRadius: 4, padding: '2px 7px' }}>
+                  {sizeTierLabel(sizeTier)} org
+                </span>
+              )}
+            </div>
+
+            {/* The headline — this is the anchor */}
+            {headline && (
+              <p style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 700, color: '#111827', lineHeight: 1.3, letterSpacing: '-0.02em' }}>
+                {headline}
+              </p>
             )}
-            {sizeTier && (
-              <span style={{ fontSize: 11.5, color: '#6b7280', background: '#f1f5f9', borderRadius: 4, padding: '3px 8px' }}>
-                {sizeTierLabel(sizeTier)} organization
-              </span>
-            )}
+
+            {/* Supporting context — smaller */}
+            <div style={{ fontSize: 13, color: '#4b5563', lineHeight: 1.6 }}>
+              {hiringYoy != null && leavingYoy != null && (
+                <span>
+                  Hiring {hiringYoy >= 0 ? 'up' : 'down'} {Math.abs(hiringYoy).toFixed(0)}%,{' '}
+                  departures {leavingYoy >= 0 ? 'up' : 'down'} {Math.abs(leavingYoy).toFixed(0)}% year-over-year.
+                </span>
+              )}
+              {!isPsTotal && advDiff != null && Math.abs(advDiff) >= 5 && (
+                <span style={{ marginLeft: 6 }}>
+                  {advDiff < 0 ? 'Less reliant on advertised processes' : 'More reliant on advertised processes'} than PS ({data.adv_pct.dept?.toFixed(0)}% vs {data.adv_pct.ps?.toFixed(0)}%).
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* Auto-insight */}
-          {insight.length > 0 && (
-            <div style={{
-              background: '#f8fafc', border: '1px solid #e2e8f0',
-              borderLeft: '4px solid #1d3557',
-              borderRadius: 6, padding: '12px 16px',
-              marginBottom: 20, maxWidth: 700,
-            }}>
-              {insight.map((s, i) => (
-                <p key={i} style={{ margin: i === 0 ? 0 : '6px 0 0', fontSize: 13.5, color: '#374151', lineHeight: 1.5 }}>
-                  {s}
-                </p>
-              ))}
-            </div>
-          )}
+          {/* ── 4 KPI cards ─────────────────────────────────────────────────── */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 28 }}>
 
-          {/* 4 KPI cards */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
-            <KpiCard
-              label="Hiring"
-              value={hiringVal}
-              yoy={hiringYoy}
-              vsLabel="PSC"
-              vsYoy={hiringYoyPs}
-              extra={
-                data.adv_pct.dept != null ? (
-                  <span style={{ fontSize: 11, color: '#6b7280' }}>
+            {/* Hiring */}
+            <div style={{ flex: 1, minWidth: 150, background: '#fff', border: '2px solid #1d3557', borderRadius: 10, padding: '18px 20px', boxShadow: '0 2px 8px rgba(29,53,87,0.08)' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Hiring</div>
+              <div style={{ fontSize: 32, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 10 }}>
+                {hiringVal != null ? hiringVal.toLocaleString() : '—'}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {hiringYoy != null && (
+                  <span style={{ fontSize: 13, fontWeight: 600, color: hiringYoy >= 0 ? '#16a34a' : '#dc2626' }}>
+                    {hiringYoy >= 0 ? '↑' : '↓'} {Math.abs(hiringYoy).toFixed(1)}% YoY
+                  </span>
+                )}
+                {hiringYoyPs != null && (
+                  <span style={{ fontSize: 11.5, color: '#6b7280' }}>PS: {hiringYoyPs >= 0 ? '+' : ''}{hiringYoyPs.toFixed(1)}%</span>
+                )}
+                {hiringVsPs != null && <PsBadge diff={hiringVsPs} higherIsGood={true} />}
+                {data.adv_pct.dept != null && (
+                  <span style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4 }}>
                     {data.adv_pct.dept.toFixed(0)}% advertised
                     {!isPsTotal && data.adv_pct.ps != null && (
-                      <span style={{ color: '#9ca3af' }}> (PSC: {data.adv_pct.ps.toFixed(0)}%)</span>
+                      <span style={{ color: '#9ca3af' }}> · PS: {data.adv_pct.ps.toFixed(0)}%</span>
                     )}
                   </span>
-                ) : undefined
-              }
-            />
+                )}
+              </div>
+            </div>
+
+            {/* Leaving */}
             <KpiCard
               label="Leaving"
               value={leavingVal}
               yoy={leavingYoy}
-              vsLabel="PSC"
-              vsYoy={leavingYoyPs}
+              psYoy={leavingYoyPs}
+              extra={!isPsTotal && leavingVsPs != null ? <PsBadge diff={-leavingVsPs} higherIsGood={true} /> : undefined}
             />
-            <KpiCard
-              label="Net Change"
-              value={netChange}
-              yoy={null}
-              netStatus={status}
-            />
-            <MobilityCard
-              mobilityPct={mobilityPct}
-              psMobilityPct={mobilityPctPs}
-              peerMobilityPct={peerMobPct}
-              peerLabel={sizeTier ? sizeTierLabel(sizeTier) : undefined}
-            />
+
+            {/* Net Change */}
+            <NetCard net={netChange} status={status} />
+
+            {/* Mobility */}
+            <div style={{ flex: 1, minWidth: 150, background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Internal Movement</div>
+              <div style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 10 }}>
+                {mobilityPct != null ? `${mobilityPct.toFixed(0)}%` : mobilityVal != null ? mobilityVal.toLocaleString() : '—'}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {mobilityVal != null && (
+                  <span style={{ fontSize: 11.5, color: '#6b7280' }}>{mobilityVal.toLocaleString()} actions</span>
+                )}
+                {mobilityPctPs != null && (
+                  <span style={{ fontSize: 11.5, color: '#6b7280' }}>PS: {mobilityPctPs.toFixed(0)}%</span>
+                )}
+                {!isPsTotal && mobilityPct != null && mobilityPctPs != null && (
+                  <PsBadge diff={mobilityPct - mobilityPctPs} higherIsGood={true} />
+                )}
+                {peerData && (() => {
+                  const peerHiring = latestVal(peerData.kpis.total_inflow.dept);
+                  const peerMob = (latestVal(peerData.kpis.promotions.dept) ?? 0) + (latestVal(peerData.kpis.acting.dept) ?? 0) + (latestVal(peerData.kpis.lateral.dept) ?? 0);
+                  const peerPct = peerHiring && peerHiring > 0 ? (peerMob / peerHiring) * 100 : null;
+                  return peerPct != null ? (
+                    <span style={{ fontSize: 11, color: '#9ca3af' }}>{sizeTierLabel(sizeTier!)} avg: {peerPct.toFixed(0)}%</span>
+                  ) : null;
+                })()}
+              </div>
+            </div>
           </div>
 
-          {/* Primary chart */}
-          <div style={{
-            border: '1px solid #dee2e6', borderRadius: 8,
-            padding: '16px 20px', background: '#fff',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-            marginBottom: 20,
-          }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 4 }}>
-              {displayName} — Hiring vs Leaving
-            </div>
-            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12 }}>
-              Total inflow and outflow over time
-            </div>
-            <ResponsiveContainer width="100%" height={260}>
+          {/* ── Hiring vs Leaving — single chart ────────────────────────────── */}
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '20px 24px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 28 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 2 }}>Hiring vs Leaving</div>
+            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>All available years · {displayName}</div>
+            <ResponsiveContainer width="100%" height={240}>
               <LineChart data={flowTrend} margin={{ top: 5, right: 20, left: 10, bottom: 50 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
                 <XAxis dataKey="fiscal_year" tick={{ fontSize: 11 }} angle={-35} textAnchor="end" interval={0} height={50} />
@@ -693,25 +639,10 @@ export default function DeptSnapshot() {
             </ResponsiveContainer>
           </div>
 
-          {/* Comparison table */}
-          <div style={{
-            border: '1px solid #dee2e6', borderRadius: 8,
-            padding: '16px 20px', background: '#fff',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-          }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 12 }}>
-              How does this compare?
-            </div>
-            <ComparisonTable
-              rows={compRows}
-              deptName={displayName}
-              peerLabel={sizeTier ? `${sizeTierLabel(sizeTier)} avg` : undefined}
-            />
-            <p style={{ fontSize: 11, color: '#9ca3af', margin: '10px 0 0' }}>
-              YoY comparisons are FYTD-normalized when current year is partial.
-              {sizeTier && ` Peer avg = ${sizeTier} from PSC open data.`}
-            </p>
-          </div>
+          {/* ── Hiring composition ────────────────────────────────────────── */}
+          {data.inflow_by_type?.length > 0 && (
+            <HiringComposition inflow_by_type={data.inflow_by_type} />
+          )}
         </>
       )}
     </div>
