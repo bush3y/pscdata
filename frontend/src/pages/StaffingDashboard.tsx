@@ -1248,8 +1248,9 @@ function KpiCard({ label, rows, accent, qCount }: { label: string; rows: Summary
               vs {Math.round(prevPrev.total).toLocaleString()}
             </span>
           </div>
-          <div style={{ fontSize: 10, color: '#adb5bd' }}>
-            {prev.fiscal_year} vs {prevPrev.fiscal_year}
+          <div style={{ fontSize: 10 }}>
+            <span style={{ color: '#495057', fontWeight: 500 }}>{prev.fiscal_year}</span>
+            <span style={{ color: '#adb5bd' }}> vs {prevPrev.fiscal_year}</span>
           </div>
         </div>
       )}
