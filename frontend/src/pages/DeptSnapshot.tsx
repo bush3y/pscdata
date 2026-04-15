@@ -254,7 +254,6 @@ function HiringComposition({ inflow_by_type }: { inflow_by_type: { fiscal_year: 
         Hiring breakdown by type · {latestFy}
       </div>
 
-      {/* Stacked bar */}
       <div style={{ height: 16, borderRadius: 4, overflow: 'hidden', display: 'flex', marginBottom: 16 }}>
         {sorted.map((r, i) => {
           const pct = total > 0 ? (r.count ?? 0) / total * 100 : 0;
@@ -264,7 +263,6 @@ function HiringComposition({ inflow_by_type }: { inflow_by_type: { fiscal_year: 
         })}
       </div>
 
-      {/* Legend with bars */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {sorted.map((r, i) => {
           const pct = total > 0 ? (r.count ?? 0) / total * 100 : 0;
@@ -438,6 +436,15 @@ export default function DeptSnapshot() {
     return (p ?? 0) + (a ?? 0) + (l ?? 0);
   }, [data]);
 
+  const peerMobilityPct = useMemo(() => {
+    if (!peerData || !sizeTier) return null;
+    const peerHiring = latestVal(peerData.kpis.total_inflow.dept);
+    const peerMob = (latestVal(peerData.kpis.promotions.dept) ?? 0)
+      + (latestVal(peerData.kpis.acting.dept) ?? 0)
+      + (latestVal(peerData.kpis.lateral.dept) ?? 0);
+    return peerHiring && peerHiring > 0 ? (peerMob / peerHiring) * 100 : null;
+  }, [peerData, sizeTier]);
+
   const psHiringVal   = latestVal(data?.kpis.total_inflow.ps ?? []);
   const mobilityPct   = mobilityVal != null && hiringVal   != null && hiringVal   > 0 ? (mobilityVal   / hiringVal)   * 100 : null;
   const mobilityPctPs = mobilityValPs != null && psHiringVal != null && psHiringVal > 0 ? (mobilityValPs / psHiringVal) * 100 : null;
@@ -556,20 +563,13 @@ export default function DeptSnapshot() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 28 }}>
 
             {/* Hiring */}
-            <div style={{ flex: 1, minWidth: 150, background: '#fff', border: '2px solid #1d3557', borderRadius: 10, padding: '18px 20px', boxShadow: '0 2px 8px rgba(29,53,87,0.08)' }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Hiring</div>
-              <div style={{ fontSize: 32, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 10 }}>
-                {hiringVal != null ? hiringVal.toLocaleString() : '—'}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {hiringYoy != null && (
-                  <span style={{ fontSize: 13, fontWeight: 600, color: hiringYoy >= 0 ? '#16a34a' : '#dc2626' }}>
-                    {hiringYoy >= 0 ? '↑' : '↓'} {Math.abs(hiringYoy).toFixed(1)}% YoY
-                  </span>
-                )}
-                {hiringYoyPs != null && (
-                  <span style={{ fontSize: 11.5, color: '#6b7280' }}>PS: {hiringYoyPs >= 0 ? '+' : ''}{hiringYoyPs.toFixed(1)}%</span>
-                )}
+            <KpiCard
+              label="Hiring"
+              value={hiringVal}
+              yoy={hiringYoy}
+              psYoy={hiringYoyPs}
+              highlight
+              extra={<>
                 {hiringVsPs != null && <PsBadge diff={hiringVsPs} higherIsGood={true} />}
                 {data.adv_pct.dept != null && (
                   <span style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4 }}>
@@ -579,8 +579,8 @@ export default function DeptSnapshot() {
                     )}
                   </span>
                 )}
-              </div>
-            </div>
+              </>}
+            />
 
             {/* Leaving */}
             <KpiCard
@@ -610,14 +610,9 @@ export default function DeptSnapshot() {
                 {!isPsTotal && mobilityPct != null && mobilityPctPs != null && (
                   <PsBadge diff={mobilityPct - mobilityPctPs} higherIsGood={true} />
                 )}
-                {peerData && (() => {
-                  const peerHiring = latestVal(peerData.kpis.total_inflow.dept);
-                  const peerMob = (latestVal(peerData.kpis.promotions.dept) ?? 0) + (latestVal(peerData.kpis.acting.dept) ?? 0) + (latestVal(peerData.kpis.lateral.dept) ?? 0);
-                  const peerPct = peerHiring && peerHiring > 0 ? (peerMob / peerHiring) * 100 : null;
-                  return peerPct != null ? (
-                    <span style={{ fontSize: 11, color: '#9ca3af' }}>{sizeTierLabel(sizeTier!)} avg: {peerPct.toFixed(0)}%</span>
-                  ) : null;
-                })()}
+                {peerMobilityPct != null && (
+                  <span style={{ fontSize: 11, color: '#9ca3af' }}>{sizeTierLabel(sizeTier!)} avg: {peerMobilityPct.toFixed(0)}%</span>
+                )}
               </div>
             </div>
           </div>
