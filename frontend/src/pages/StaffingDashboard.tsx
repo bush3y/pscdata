@@ -250,14 +250,17 @@ function AdvertisementsTab({ filters }: TabProps) {
 
   const dimLabel = availDims.find(d => d.key === activeDim)?.label ?? activeDim;
   const metricLabel = ADV_METRICS.find(m => m.key === metric)?.label ?? metric;
-  const advFilters = { fiscal_year: filters.fiscal_year };
+  // raw_advertisements has no org-size aggregate rows — department filter intentionally omitted
+  const rawFilters = { fiscal_year: filters.fiscal_year };
+  // dash_advertisements has org-size rows (Micro/Small/Medium/Large averages) — pass department
+  const dashFilters = { fiscal_year: filters.fiscal_year, department: filters.department };
 
   // raw_advertisements source (adv_count, screened_in)
   const rawMetricKey = metric === 'applications' ? 'adv_count' : metric;
-  const rawTrend2d = useAdvertisementAggregate('fiscal_year', rawMetricKey, advFilters, activeDim);
+  const rawTrend2d = useAdvertisementAggregate('fiscal_year', rawMetricKey, rawFilters, activeDim);
 
   // dash_advertisements source (applications)
-  const dashTrend2d = useStaffingAdvAggregate('fiscal_year', advFilters, activeDim);
+  const dashTrend2d = useStaffingAdvAggregate('fiscal_year', dashFilters, activeDim);
 
   const trend2d = isDash ? dashTrend2d : rawTrend2d;
 
@@ -344,6 +347,11 @@ function AdvertisementsTab({ filters }: TabProps) {
       {ADV_METRIC_DESCRIPTIONS[metric] && (
         <p style={{ fontSize: 12, color: '#6c757d', margin: '0 0 16px', lineHeight: 1.5, maxWidth: 860 }}>
           {ADV_METRIC_DESCRIPTIONS[metric]}
+        </p>
+      )}
+      {filters.department && !isDash && (
+        <p style={{ fontSize: 11.5, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 4, padding: '6px 10px', margin: '0 0 14px', maxWidth: 600 }}>
+          Organization size filters apply to the <strong>Applications</strong> metric only — Advertisements and Screened In are sourced from raw postings which don't have org-size aggregates.
         </p>
       )}
 
