@@ -37,6 +37,16 @@ function latestVal(arr: KpiSeries[]): number | null {
   return arr?.[0]?.total ?? null;
 }
 
+function fmt(n: number | null, decimals = 0): string {
+  if (n == null) return '—';
+  return n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function fmtPct(n: number | null, decimals = 1): string {
+  if (n == null) return '—';
+  return `${n >= 0 ? '+' : ''}${n.toFixed(decimals)}%`;
+}
+
 function yoyPct(arr: KpiSeries[], qCount: number): number | null {
   const curr  = arr?.[0]?.total;
   const prior = arr?.[1];
@@ -292,6 +302,69 @@ function HiringComposition({ inflow_by_type }: { inflow_by_type: { fiscal_year: 
   );
 }
 
+// ── Comparison table ────────────────────────────────────────────────────────
+
+interface CompRow {
+  label: string;
+  dept: string;
+  peer?: string;
+  ps: string;
+  deptNum?: number | null;
+  psNum?: number | null;
+  higherIsBetter?: boolean;
+}
+
+function ComparisonTable({ rows, deptName, peerLabel }: {
+  rows: CompRow[];
+  deptName: string;
+  peerLabel?: string;
+}) {
+  const hasPeer = rows.some(r => r.peer !== undefined);
+
+  function cellColor(deptNum: number | null | undefined, psNum: number | null | undefined, higherIsBetter: boolean | undefined): string {
+    if (deptNum == null || psNum == null || higherIsBetter == null) return '#374151';
+    if (higherIsBetter) return deptNum >= psNum ? '#15803d' : '#dc2626';
+    return deptNum <= psNum ? '#15803d' : '#dc2626';
+  }
+
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>
+        <thead>
+          <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+            <th style={{ textAlign: 'left', padding: '8px 12px', color: '#6b7280', fontWeight: 600, fontSize: 11 }}>Metric</th>
+            <th style={{ textAlign: 'right', padding: '8px 12px', color: '#1d3557', fontWeight: 700, fontSize: 11 }}>
+              {deptName.length > 30 ? 'This dept' : deptName}
+            </th>
+            {hasPeer && peerLabel && (
+              <th style={{ textAlign: 'right', padding: '8px 12px', color: '#6b7280', fontWeight: 600, fontSize: 11 }}>
+                {peerLabel}
+              </th>
+            )}
+            <th style={{ textAlign: 'right', padding: '8px 12px', color: '#6b7280', fontWeight: 600, fontSize: 11 }}>PS Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={row.label} style={{ background: i % 2 === 1 ? '#f9fafb' : '#fff', borderBottom: '1px solid #f3f4f6' }}>
+              <td style={{ padding: '9px 12px', color: '#374151' }}>{row.label}</td>
+              <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600, color: cellColor(row.deptNum, row.psNum, row.higherIsBetter) }}>
+                {row.dept}
+              </td>
+              {hasPeer && (
+                <td style={{ padding: '9px 12px', textAlign: 'right', color: '#6b7280' }}>
+                  {row.peer ?? '—'}
+                </td>
+              )}
+              <td style={{ padding: '9px 12px', textAlign: 'right', color: '#6b7280' }}>{row.ps}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ── Department selector ─────────────────────────────────────────────────────
 
 function DeptSelector({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
@@ -477,6 +550,13 @@ export default function DeptSnapshot() {
     mobilityPctPs,
   }) : null;
 
+  // Peer metrics (for comparison table)
+  const peerHiringVal  = peerData ? latestVal(peerData.kpis.total_inflow.dept) : null;
+  const peerLeavingVal = peerData ? latestVal(peerData.kpis.separations.dept)  : null;
+  const peerHiringYoy  = peerData ? yoyPct(peerData.kpis.total_inflow.dept, peerData.q_count) : null;
+  const peerLeavingYoy = peerData ? yoyPct(peerData.kpis.separations.dept,  peerData.q_count) : null;
+  const peerAdvPct     = peerData?.adv_pct.dept ?? null;
+
   // Flow trend chart data
   const flowTrend = useMemo(() => {
     if (!data) return [];
@@ -488,6 +568,57 @@ export default function DeptSnapshot() {
     });
     return Object.values(map).sort((a, b) => String(a.fiscal_year).localeCompare(String(b.fiscal_year)));
   }, [data]);
+
+  const compRows: CompRow[] = useMemo(() => {
+    if (!data) return [];
+    const psHiring  = latestVal(data.kpis.total_inflow.ps);
+    const psLeaving = latestVal(data.kpis.separations.ps);
+    return [
+      {
+        label: 'Hiring (latest year)',
+        dept: fmt(hiringVal),
+        peer: fmt(peerHiringVal),
+        ps:   fmt(psHiring),
+        deptNum: hiringVal, psNum: psHiring, higherIsBetter: true,
+      },
+      {
+        label: 'Departures (latest year)',
+        dept: fmt(leavingVal),
+        peer: fmt(peerLeavingVal),
+        ps:   fmt(psLeaving),
+        deptNum: leavingVal, psNum: psLeaving, higherIsBetter: false,
+      },
+      {
+        label: 'Hiring YoY',
+        dept: fmtPct(hiringYoy),
+        peer: fmtPct(peerHiringYoy),
+        ps:   fmtPct(hiringYoyPs),
+        deptNum: hiringYoy, psNum: hiringYoyPs, higherIsBetter: true,
+      },
+      {
+        label: 'Departures YoY',
+        dept: fmtPct(leavingYoy),
+        peer: fmtPct(peerLeavingYoy),
+        ps:   fmtPct(leavingYoyPs),
+        deptNum: leavingYoy, psNum: leavingYoyPs, higherIsBetter: false,
+      },
+      {
+        label: 'Mobility rate',
+        dept: mobilityPct    != null ? `${mobilityPct.toFixed(0)}%`    : '—',
+        peer: peerMobilityPct != null ? `${peerMobilityPct.toFixed(0)}%` : '—',
+        ps:   mobilityPctPs  != null ? `${mobilityPctPs.toFixed(0)}%`  : '—',
+      },
+      {
+        label: 'Advertised %',
+        dept: data.adv_pct.dept != null ? `${data.adv_pct.dept.toFixed(0)}%` : '—',
+        peer: peerAdvPct        != null ? `${peerAdvPct.toFixed(0)}%`        : '—',
+        ps:   data.adv_pct.ps  != null ? `${data.adv_pct.ps.toFixed(0)}%`   : '—',
+        deptNum: data.adv_pct.dept, psNum: data.adv_pct.ps, higherIsBetter: undefined,
+      },
+    ];
+  }, [data, hiringVal, leavingVal, hiringYoy, leavingYoy, hiringYoyPs, leavingYoyPs,
+      mobilityPct, mobilityPctPs, peerMobilityPct,
+      peerHiringVal, peerLeavingVal, peerHiringYoy, peerLeavingYoy, peerAdvPct]);
 
   const latestFy  = data?.kpis.total_inflow.dept?.[0]?.fiscal_year;
   const displayName = selectedDept ?? 'All Public Service';
@@ -636,8 +767,26 @@ export default function DeptSnapshot() {
 
           {/* ── Hiring composition ────────────────────────────────────────── */}
           {data.inflow_by_type?.length > 0 && (
-            <HiringComposition inflow_by_type={data.inflow_by_type} />
+            <div style={{ marginBottom: 28 }}>
+              <HiringComposition inflow_by_type={data.inflow_by_type} />
+            </div>
           )}
+
+          {/* ── Comparison table ──────────────────────────────────────────── */}
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '20px 24px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 12 }}>
+              How does this compare?
+            </div>
+            <ComparisonTable
+              rows={compRows}
+              deptName={displayName}
+              peerLabel={sizeTier ? `${sizeTierLabel(sizeTier)} avg` : undefined}
+            />
+            <p style={{ fontSize: 11, color: '#9ca3af', margin: '10px 0 0' }}>
+              YoY comparisons are FYTD-normalized when current year is partial.
+              {sizeTier && ` Peer avg = ${sizeTier} from PSC open data.`}
+            </p>
+          </div>
         </>
       )}
     </div>
