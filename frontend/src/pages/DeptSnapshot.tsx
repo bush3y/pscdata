@@ -98,7 +98,10 @@ function getHeadline(p: HeadlineParams): string {
   let modifier = '';
   if (hiringDown)
     modifier = 'despite a sharp decline in hiring';
-  else if (hiringUp && leavingDown)
+  else if (hiringUp && leavingDown && (() => {
+    const a = Math.abs(p.hiringYoy!), b = Math.abs(p.leavingYoy!);
+    return Math.min(a, b) / Math.max(a, b) >= 0.5;
+  })())
     modifier = 'driven by strong hiring growth and falling departures';
   else if (leavingUp)
     modifier = 'driven by rising departures';
