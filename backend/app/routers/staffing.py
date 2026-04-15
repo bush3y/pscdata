@@ -597,12 +597,12 @@ async def get_department_overview(department: str | None = None) -> dict:
         [dept],
     )
 
-    # ── EE snapshot (latest 2 years for directional change) ─────────────────
+    # ── EE self-identification rate (latest 3 years for trend + direction) ────
     ee_dept = q(
         "SELECT ee_group_e, fiscal_year, SUM(count) AS count FROM dash_demo_ee "
         "WHERE department_e = ? "
         "  AND fiscal_year IN (SELECT DISTINCT fiscal_year FROM dash_demo_ee "
-        "                       WHERE department_e = ? ORDER BY fiscal_year DESC LIMIT 2) "
+        "                       WHERE department_e = ? ORDER BY fiscal_year DESC LIMIT 3) "
         "GROUP BY ee_group_e, fiscal_year ORDER BY fiscal_year DESC, ee_group_e",
         [dept, dept],
     )
@@ -612,7 +612,7 @@ async def get_department_overview(department: str | None = None) -> dict:
             "WHERE department_e = 'Public Service - Total' "
             "  AND fiscal_year IN (SELECT DISTINCT fiscal_year FROM dash_demo_ee "
             "                       WHERE department_e = 'Public Service - Total' "
-            "                       ORDER BY fiscal_year DESC LIMIT 2) "
+            "                       ORDER BY fiscal_year DESC LIMIT 3) "
             "GROUP BY ee_group_e, fiscal_year ORDER BY fiscal_year DESC, ee_group_e",
         )
     else:

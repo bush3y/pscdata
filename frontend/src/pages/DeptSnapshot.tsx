@@ -438,15 +438,15 @@ function StaffingProcessesModule({ adv_by_type }: {
   );
 }
 
-// ── Module 2: Employment equity ──────────────────────────────────────────────
+// ── Module 2: EE self-identification rate ────────────────────────────────────
 
-const EE_LABELS: Record<string, string> = {
-  'Women': 'Women',
-  'Visible Minority': 'Visible Minority',
-  'Aboriginal Peoples': 'Indigenous',
-  'Persons with Disabilities': 'Persons w/ Disabilities',
-};
-const EE_ORDER = ['Women', 'Visible Minority', 'Aboriginal Peoples', 'Persons with Disabilities'];
+function eeRate(rows: EeRow[], fy: string): number | null {
+  const ee  = rows.find(r => r.fiscal_year === fy && r.ee_group_e === 'Self-identified as EE')?.count ?? null;
+  const non = rows.find(r => r.fiscal_year === fy && r.ee_group_e === 'Did not self-identify as EE')?.count ?? null;
+  if (ee == null || non == null) return null;
+  const total = ee + non;
+  return total > 0 ? (ee / total) * 100 : null;
+}
 
 function EERepresentationModule({ ee_snapshot, isPsTotal }: {
   ee_snapshot: { dept: EeRow[]; ps: EeRow[] };
@@ -456,52 +456,67 @@ function EERepresentationModule({ ee_snapshot, isPsTotal }: {
   if (!dept.length) return null;
 
   const fyList = [...new Set(dept.map(r => r.fiscal_year))].sort().reverse();
-  const latestFy = fyList[0];
-  const priorFy  = fyList[1];
+  if (!fyList.length) return null;
 
-  function groupMap(rows: EeRow[], fy: string) {
-    const m: Record<string, number | null> = {};
-    rows.filter(r => r.fiscal_year === fy).forEach(r => { m[r.ee_group_e] = r.count; });
-    return m;
-  }
+  const years = fyList.slice(0, 3).map(fy => ({
+    fy,
+    rate:   eeRate(dept, fy),
+    ratePs: eeRate(ps, fy),
+  }));
 
-  const latest     = groupMap(dept, latestFy);
-  const prior      = priorFy ? groupMap(dept, priorFy) : {};
-  const latestPs   = groupMap(ps, latestFy);
-
-  const groups = EE_ORDER.filter(g => latest[g] != null || latestPs[g] != null);
-  if (!groups.length) return null;
+  const latest = years[0];
+  const prior  = years[1];
+  const yoy    = latest.rate != null && prior?.rate != null ? latest.rate - prior.rate : null;
+  const vPs    = latest.rate != null && latest.ratePs != null ? latest.rate - latest.ratePs : null;
 
   return (
-    <ModuleCard title="EE Representation in Hiring" subtitle={`Designated group counts · ${latestFy}${priorFy ? ` vs ${priorFy}` : ''} · ~1 yr data lag`}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {groups.map(g => {
-          const curr = latest[g] ?? null;
-          const prev = prior[g] ?? null;
-          const psVal = latestPs[g] ?? null;
-          const dir = curr != null && prev != null
-            ? curr > prev ? '↑' : curr < prev ? '↓' : '→'
-            : null;
-          const dirColor = dir === '↑' ? '#15803d' : dir === '↓' ? '#dc2626' : '#6b7280';
-
-          return (
-            <div key={g} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #f3f4f6' }}>
-              <span style={{ fontSize: 12.5, color: '#374151' }}>{EE_LABELS[g] ?? g}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {!isPsTotal && psVal != null && (
-                  <span style={{ fontSize: 11, color: '#9ca3af' }}>PS: {psVal.toLocaleString()}</span>
-                )}
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#111827', minWidth: 40, textAlign: 'right' }}>
-                  {curr != null ? curr.toLocaleString() : '—'}
-                </span>
-                {dir && (
-                  <span style={{ fontSize: 13, fontWeight: 700, color: dirColor, minWidth: 14 }}>{dir}</span>
-                )}
-              </div>
+    <ModuleCard title="EE Self-Identification in Hiring" subtitle={`% of new hires who self-identified as EE · ~1 yr data lag`}>
+      <div style={{ display: 'flex', gap: 20, marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Latest rate</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#111827', lineHeight: 1 }}>
+            {latest.rate != null ? `${latest.rate.toFixed(1)}%` : '—'}
+          </div>
+          {yoy != null && (
+            <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4, color: Math.abs(yoy) < 0.5 ? '#6b7280' : yoy > 0 ? '#15803d' : '#dc2626' }}>
+              {yoy > 0 ? '↑' : yoy < 0 ? '↓' : '→'} {Math.abs(yoy).toFixed(1)}pp YoY
             </div>
-          );
-        })}
+          )}
+        </div>
+        {!isPsTotal && vPs != null && (
+          <div>
+            <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>vs PS avg</div>
+            <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1, color: Math.abs(vPs) < 1 ? '#6b7280' : vPs > 0 ? '#15803d' : '#dc2626' }}>
+              {vPs > 0 ? '+' : ''}{vPs.toFixed(1)}pp
+            </div>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>PS: {latest.ratePs?.toFixed(1)}%</div>
+          </div>
+        )}
       </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
+            <th style={{ textAlign: 'left', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Year</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>EE rate</th>
+            {!isPsTotal && <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>PS rate</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {years.map((y, i) => (
+            <tr key={y.fy} style={{ background: i % 2 === 1 ? '#f9fafb' : 'transparent' }}>
+              <td style={{ padding: '5px 0', color: '#374151' }}>{y.fy}</td>
+              <td style={{ padding: '5px 0', textAlign: 'right', fontWeight: i === 0 ? 600 : 400, color: '#374151' }}>
+                {y.rate != null ? `${y.rate.toFixed(1)}%` : '—'}
+              </td>
+              {!isPsTotal && (
+                <td style={{ padding: '5px 0', textAlign: 'right', color: '#6b7280' }}>
+                  {y.ratePs != null ? `${y.ratePs.toFixed(1)}%` : '—'}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </ModuleCard>
   );
 }
@@ -1019,10 +1034,10 @@ export default function DeptSnapshot() {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
             <StaffingProcessesModule adv_by_type={data.adv_by_type ?? []} />
             <MobilityDetailModule mobility_trend={data.mobility_trend ?? []} inflow_by_type={data.inflow_by_type ?? []} />
+            {data.ee_snapshot?.dept?.length > 0 && (
+              <EERepresentationModule ee_snapshot={data.ee_snapshot} isPsTotal={isPsTotal} />
+            )}
           </div>
-          {data.ee_snapshot?.dept?.length > 0 && (
-            <EERepresentationModule ee_snapshot={data.ee_snapshot} isPsTotal={isPsTotal} />
-          )}
         </>
       )}
     </div>
