@@ -122,35 +122,16 @@ function getHeadline(p: HeadlineParams): string {
   return modifier ? `${base}, ${modifier}.` : `${base}.`;
 }
 
-// ── PS comparison badge ─────────────────────────────────────────────────────
+// ── KPI card ────────────────────────────────────────────────────────────────
 
-function PsBadge({ diff, higherIsGood, suffix = 'pp' }: {
-  diff: number | null;
-  higherIsGood: boolean;
-  suffix?: string;
-}) {
-  if (diff == null) return null;
-  const abs   = Math.abs(diff);
-  const above = diff > 0;
-  const good  = higherIsGood ? above : !above;
-  const color = Math.abs(diff) < 2 ? '#6b7280' : good ? '#15803d' : '#dc2626';
-  const bg    = Math.abs(diff) < 2 ? '#f1f5f9' : good ? '#f0fdf4' : '#fff5f5';
-  const label = Math.abs(diff) < 2
-    ? 'At PS avg'
-    : `${above ? '+' : '−'}${abs.toFixed(0)}${suffix} vs PS`;
-
+function KpiRow({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <span style={{
-      display: 'inline-block', padding: '2px 7px', borderRadius: 4,
-      fontSize: 11, fontWeight: 600, color, background: bg,
-      marginTop: 4,
-    }}>
-      {label}
-    </span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+      <span style={{ fontSize: 11.5, color: '#6b7280' }}>{label}</span>
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: color ?? '#374151' }}>{value}</span>
+    </div>
   );
 }
-
-// ── KPI card ────────────────────────────────────────────────────────────────
 
 function KpiCard({ label, value, yoy, psYoy, extra, highlight }: {
   label: string;
@@ -160,9 +141,6 @@ function KpiCard({ label, value, yoy, psYoy, extra, highlight }: {
   extra?: React.ReactNode;
   highlight?: boolean;
 }) {
-  const upColor   = '#16a34a';
-  const downColor = '#dc2626';
-
   return (
     <div style={{
       flex: 1, minWidth: 150,
@@ -175,22 +153,32 @@ function KpiCard({ label, value, yoy, psYoy, extra, highlight }: {
       <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
         {label}
       </div>
-      <div style={{ fontSize: highlight ? 32 : 26, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 10 }}>
+      <div style={{ fontSize: highlight ? 32 : 26, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12 }}>
         {value != null ? value.toLocaleString() : '—'}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {yoy != null && (
-          <span style={{ fontSize: 13, fontWeight: 600, color: yoy >= 0 ? upColor : downColor }}>
-            {yoy >= 0 ? '↑' : '↓'} {Math.abs(yoy).toFixed(1)}% YoY
-          </span>
-        )}
-        {psYoy != null && (
-          <span style={{ fontSize: 11.5, color: '#6b7280' }}>
-            PS: {psYoy >= 0 ? '+' : ''}{psYoy.toFixed(1)}%
-          </span>
-        )}
-        {extra}
-      </div>
+      {(yoy != null || psYoy != null) && (
+        <div style={{ marginBottom: extra ? 10 : 0 }}>
+          {yoy != null && (
+            <KpiRow
+              label="This year"
+              value={`${yoy >= 0 ? '↑' : '↓'} ${Math.abs(yoy).toFixed(1)}%`}
+              color={yoy >= 0 ? '#16a34a' : '#dc2626'}
+            />
+          )}
+          {psYoy != null && (
+            <KpiRow
+              label="PS average"
+              value={`${psYoy >= 0 ? '↑' : '↓'} ${Math.abs(psYoy).toFixed(1)}%`}
+              color="#9ca3af"
+            />
+          )}
+        </div>
+      )}
+      {extra && (
+        <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 10 }}>
+          {extra}
+        </div>
+      )}
     </div>
   );
 }
@@ -766,9 +754,6 @@ export default function DeptSnapshot() {
   const mobilityPct   = mobilityVal != null && hiringVal   != null && hiringVal   > 0 ? (mobilityVal   / hiringVal)   * 100 : null;
   const mobilityPctPs = mobilityValPs != null && psHiringVal != null && psHiringVal > 0 ? (mobilityValPs / psHiringVal) * 100 : null;
 
-  const hiringVsPs  = hiringYoy  != null && hiringYoyPs  != null ? hiringYoy  - hiringYoyPs  : null;
-  const leavingVsPs = leavingYoy != null && leavingYoyPs != null ? leavingYoy - leavingYoyPs : null;
-
   const advDiff = data?.adv_pct.dept != null && data?.adv_pct.ps != null
     ? data.adv_pct.dept - data.adv_pct.ps
     : null;
@@ -937,19 +922,16 @@ export default function DeptSnapshot() {
               label="Hiring"
               value={hiringVal}
               yoy={hiringYoy}
-              psYoy={hiringYoyPs}
+              psYoy={!isPsTotal ? hiringYoyPs : undefined}
               highlight
-              extra={<>
-                {hiringVsPs != null && <PsBadge diff={hiringVsPs} higherIsGood={true} />}
-                {data.adv_pct.dept != null && (
-                  <span style={{ fontSize: 11.5, color: '#6b7280', marginTop: 4 }}>
-                    {data.adv_pct.dept.toFixed(0)}% advertised
-                    {!isPsTotal && data.adv_pct.ps != null && (
-                      <span style={{ color: '#9ca3af' }}> · PS: {data.adv_pct.ps.toFixed(0)}%</span>
-                    )}
-                  </span>
-                )}
-              </>}
+              extra={data.adv_pct.dept != null ? (
+                <>
+                  <KpiRow label="Via advertised process" value={`${data.adv_pct.dept.toFixed(0)}%`} />
+                  {!isPsTotal && data.adv_pct.ps != null && (
+                    <KpiRow label="PS average" value={`${data.adv_pct.ps.toFixed(0)}%`} color="#9ca3af" />
+                  )}
+                </>
+              ) : undefined}
             />
 
             {/* Leaving */}
@@ -957,31 +939,27 @@ export default function DeptSnapshot() {
               label="Leaving"
               value={leavingVal}
               yoy={leavingYoy}
-              psYoy={leavingYoyPs}
-              extra={!isPsTotal && leavingVsPs != null ? <PsBadge diff={-leavingVsPs} higherIsGood={true} /> : undefined}
+              psYoy={!isPsTotal ? leavingYoyPs : undefined}
             />
 
             {/* Net Change */}
             <NetCard net={netChange} status={status} />
 
-            {/* Mobility */}
+            {/* Internal Movement */}
             <div style={{ flex: 1, minWidth: 150, background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
               <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Internal Movement</div>
-              <div style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 10 }}>
+              <div style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12 }}>
                 {mobilityPct != null ? `${mobilityPct.toFixed(0)}%` : mobilityVal != null ? mobilityVal.toLocaleString() : '—'}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div>
                 {mobilityVal != null && (
-                  <span style={{ fontSize: 11.5, color: '#6b7280' }}>{mobilityVal.toLocaleString()} actions</span>
+                  <KpiRow label="Total actions" value={mobilityVal.toLocaleString()} />
                 )}
-                {mobilityPctPs != null && (
-                  <span style={{ fontSize: 11.5, color: '#6b7280' }}>PS: {mobilityPctPs.toFixed(0)}%</span>
-                )}
-                {!isPsTotal && mobilityPct != null && mobilityPctPs != null && (
-                  <PsBadge diff={mobilityPct - mobilityPctPs} higherIsGood={true} />
+                {!isPsTotal && mobilityPctPs != null && (
+                  <KpiRow label="PS average" value={`${mobilityPctPs.toFixed(0)}%`} color="#9ca3af" />
                 )}
                 {peerMobilityPct != null && (
-                  <span style={{ fontSize: 11, color: '#9ca3af' }}>{sizeTierLabel(sizeTier!)} avg: {peerMobilityPct.toFixed(0)}%</span>
+                  <KpiRow label={`${sizeTierLabel(sizeTier!)} org avg`} value={`${peerMobilityPct.toFixed(0)}%`} color="#9ca3af" />
                 )}
               </div>
             </div>
