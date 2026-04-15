@@ -11,6 +11,8 @@ import client from '../api/client';
 interface KpiSeries { fiscal_year: string; total: number | null; qtr_total?: number | null }
 interface KpiGroup  { dept: KpiSeries[]; ps: KpiSeries[] }
 
+interface EeRow { ee_group_e: string; fiscal_year: string; count: number | null }
+
 interface SnapshotData {
   department: string;
   is_ps_total: boolean;
@@ -27,7 +29,10 @@ interface SnapshotData {
     inflow:  { fiscal_year: string; total: number | null }[];
     outflow: { fiscal_year: string; total: number | null }[];
   };
-  inflow_by_type: { fiscal_year: string; hire_e: string; count: number | null }[];
+  inflow_by_type:  { fiscal_year: string; hire_e: string; count: number | null }[];
+  mobility_trend:  { fiscal_year: string; mob_type_e: string; count: number | null }[];
+  adv_by_type:     { fiscal_year: string; adv_e: string; count: number | null }[];
+  ee_snapshot:     { dept: EeRow[]; ps: EeRow[] };
   tbs_headcount: { year: number; count: number } | null;
 }
 
@@ -354,6 +359,238 @@ function ComparisonTable({ rows, deptName, peerLabel }: {
         </tbody>
       </table>
     </div>
+  );
+}
+
+// ── Context module card shell ────────────────────────────────────────────────
+
+function ModuleCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '18px 20px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', flex: 1, minWidth: 220 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: subtitle ? 2 : 12 }}>{title}</div>
+      {subtitle && <div style={{ fontSize: 11.5, color: '#6b7280', marginBottom: 14 }}>{subtitle}</div>}
+      {children}
+    </div>
+  );
+}
+
+// ── Module 1: Staffing processes ─────────────────────────────────────────────
+
+function StaffingProcessesModule({ adv_by_type }: {
+  adv_by_type: { fiscal_year: string; adv_e: string; count: number | null }[];
+}) {
+  const years = useMemo(() => {
+    const map: Record<string, { total: number; advertised: number }> = {};
+    for (const r of adv_by_type) {
+      if (!map[r.fiscal_year]) map[r.fiscal_year] = { total: 0, advertised: 0 };
+      map[r.fiscal_year].total += r.count ?? 0;
+      if (r.adv_e === 'Advertised Process') map[r.fiscal_year].advertised += r.count ?? 0;
+    }
+    return Object.entries(map)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .slice(0, 3)
+      .map(([fy, v]) => ({ fy, ...v, pct: v.total > 0 ? (v.advertised / v.total) * 100 : null }));
+  }, [adv_by_type]);
+
+  if (!years.length) return null;
+
+  const latest = years[0];
+  const prior  = years[1];
+  const advYoy = latest.pct != null && prior?.pct != null ? latest.pct - prior.pct : null;
+
+  return (
+    <ModuleCard title="Staffing Processes" subtitle="Advertised vs non-advertised appointments">
+      <div style={{ fontSize: 24, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 6 }}>
+        {latest.advertised.toLocaleString()}
+        <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>advertised · {latest.fy}</span>
+      </div>
+      {latest.pct != null && (
+        <div style={{ fontSize: 12.5, color: '#6b7280', marginBottom: 14 }}>
+          {latest.pct.toFixed(0)}% of all appointments
+          {advYoy != null && (
+            <span style={{ marginLeft: 6, color: Math.abs(advYoy) < 2 ? '#6b7280' : advYoy > 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
+              {advYoy > 0 ? '↑' : advYoy < 0 ? '↓' : '→'} {Math.abs(advYoy).toFixed(1)}pp vs prior year
+            </span>
+          )}
+        </div>
+      )}
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
+            <th style={{ textAlign: 'left', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Year</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Total</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Advertised</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {years.map((y, i) => (
+            <tr key={y.fy} style={{ background: i % 2 === 1 ? '#f9fafb' : 'transparent' }}>
+              <td style={{ padding: '5px 0', color: '#374151' }}>{y.fy}</td>
+              <td style={{ padding: '5px 0', textAlign: 'right', color: '#6b7280' }}>{y.total.toLocaleString()}</td>
+              <td style={{ padding: '5px 0', textAlign: 'right', color: '#374151', fontWeight: i === 0 ? 600 : 400 }}>{y.advertised.toLocaleString()}</td>
+              <td style={{ padding: '5px 0', textAlign: 'right', color: '#374151', fontWeight: i === 0 ? 600 : 400 }}>{y.pct != null ? `${y.pct.toFixed(0)}%` : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </ModuleCard>
+  );
+}
+
+// ── Module 2: Employment equity ──────────────────────────────────────────────
+
+const EE_LABELS: Record<string, string> = {
+  'Women': 'Women',
+  'Visible Minority': 'Visible Minority',
+  'Aboriginal Peoples': 'Indigenous',
+  'Persons with Disabilities': 'Persons w/ Disabilities',
+};
+const EE_ORDER = ['Women', 'Visible Minority', 'Aboriginal Peoples', 'Persons with Disabilities'];
+
+function EERepresentationModule({ ee_snapshot, isPsTotal }: {
+  ee_snapshot: { dept: EeRow[]; ps: EeRow[] };
+  isPsTotal: boolean;
+}) {
+  const { dept, ps } = ee_snapshot;
+  if (!dept.length) return null;
+
+  const fyList = [...new Set(dept.map(r => r.fiscal_year))].sort().reverse();
+  const latestFy = fyList[0];
+  const priorFy  = fyList[1];
+
+  function groupMap(rows: EeRow[], fy: string) {
+    const m: Record<string, number | null> = {};
+    rows.filter(r => r.fiscal_year === fy).forEach(r => { m[r.ee_group_e] = r.count; });
+    return m;
+  }
+
+  const latest     = groupMap(dept, latestFy);
+  const prior      = priorFy ? groupMap(dept, priorFy) : {};
+  const latestPs   = groupMap(ps, latestFy);
+
+  const groups = EE_ORDER.filter(g => latest[g] != null || latestPs[g] != null);
+  if (!groups.length) return null;
+
+  return (
+    <ModuleCard title="EE Representation in Hiring" subtitle={`Designated group counts · ${latestFy}${priorFy ? ` vs ${priorFy}` : ''} · ~1 yr data lag`}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {groups.map(g => {
+          const curr = latest[g] ?? null;
+          const prev = prior[g] ?? null;
+          const psVal = latestPs[g] ?? null;
+          const dir = curr != null && prev != null
+            ? curr > prev ? '↑' : curr < prev ? '↓' : '→'
+            : null;
+          const dirColor = dir === '↑' ? '#15803d' : dir === '↓' ? '#dc2626' : '#6b7280';
+
+          return (
+            <div key={g} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #f3f4f6' }}>
+              <span style={{ fontSize: 12.5, color: '#374151' }}>{EE_LABELS[g] ?? g}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {!isPsTotal && psVal != null && (
+                  <span style={{ fontSize: 11, color: '#9ca3af' }}>PS: {psVal.toLocaleString()}</span>
+                )}
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#111827', minWidth: 40, textAlign: 'right' }}>
+                  {curr != null ? curr.toLocaleString() : '—'}
+                </span>
+                {dir && (
+                  <span style={{ fontSize: 13, fontWeight: 700, color: dirColor, minWidth: 14 }}>{dir}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </ModuleCard>
+  );
+}
+
+// ── Module 3: Internal mobility detail ──────────────────────────────────────
+
+const INTERNAL_HIRE_TYPES = new Set([
+  'Term to Indeterminate',
+  'Indeterminate from other organization',
+  'Term from other organization',
+]);
+
+function MobilityDetailModule({ mobility_trend, inflow_by_type }: {
+  mobility_trend: { fiscal_year: string; mob_type_e: string; count: number | null }[];
+  inflow_by_type: { fiscal_year: string; hire_e: string; count: number | null }[];
+}) {
+  const years = useMemo(() => {
+    const fys = [...new Set(mobility_trend.map(r => r.fiscal_year))].sort().reverse().slice(0, 3);
+    return fys.map(fy => {
+      const mobTotal = mobility_trend
+        .filter(r => r.fiscal_year === fy)
+        .reduce((s, r) => s + (r.count ?? 0), 0);
+
+      const inflowTotal = inflow_by_type
+        .filter(r => r.fiscal_year === fy)
+        .reduce((s, r) => s + (r.count ?? 0), 0);
+
+      const internalTransfers = inflow_by_type
+        .filter(r => r.fiscal_year === fy && INTERNAL_HIRE_TYPES.has(r.hire_e))
+        .reduce((s, r) => s + (r.count ?? 0), 0);
+
+      return {
+        fy,
+        mobTotal,
+        mobRate: inflowTotal > 0 ? (mobTotal / inflowTotal) * 100 : null,
+        internalPct: inflowTotal > 0 ? (internalTransfers / inflowTotal) * 100 : null,
+      };
+    });
+  }, [mobility_trend, inflow_by_type]);
+
+  if (!years.length) return null;
+
+  const latest = years[0];
+  const prior  = years[1];
+  const mobYoy = latest.mobRate != null && prior?.mobRate != null ? latest.mobRate - prior.mobRate : null;
+
+  return (
+    <ModuleCard title="Internal Staffing Movement" subtitle="Mobility actions and internal transfers as a share of total inflow">
+      <div style={{ display: 'flex', gap: 20, marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Mobility rate</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#111827', lineHeight: 1 }}>
+            {latest.mobRate != null ? `${latest.mobRate.toFixed(0)}%` : '—'}
+          </div>
+          {mobYoy != null && (
+            <div style={{ fontSize: 12, color: Math.abs(mobYoy) < 1 ? '#6b7280' : mobYoy > 0 ? '#15803d' : '#dc2626', fontWeight: 600, marginTop: 4 }}>
+              {mobYoy > 0 ? '↑' : mobYoy < 0 ? '↓' : '→'} {Math.abs(mobYoy).toFixed(1)}pp YoY
+            </div>
+          )}
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Internal transfers</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#111827', lineHeight: 1 }}>
+            {latest.internalPct != null ? `${latest.internalPct.toFixed(0)}%` : '—'}
+          </div>
+          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>of total inflow</div>
+        </div>
+      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
+            <th style={{ textAlign: 'left', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Year</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Actions</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Mob. rate</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Int. transfers</th>
+          </tr>
+        </thead>
+        <tbody>
+          {years.map((y, i) => (
+            <tr key={y.fy} style={{ background: i % 2 === 1 ? '#f9fafb' : 'transparent' }}>
+              <td style={{ padding: '5px 0', color: '#374151' }}>{y.fy}</td>
+              <td style={{ padding: '5px 0', textAlign: 'right', color: '#6b7280' }}>{y.mobTotal.toLocaleString()}</td>
+              <td style={{ padding: '5px 0', textAlign: 'right', color: '#374151', fontWeight: i === 0 ? 600 : 400 }}>{y.mobRate != null ? `${y.mobRate.toFixed(0)}%` : '—'}</td>
+              <td style={{ padding: '5px 0', textAlign: 'right', color: '#374151', fontWeight: i === 0 ? 600 : 400 }}>{y.internalPct != null ? `${y.internalPct.toFixed(0)}%` : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </ModuleCard>
   );
 }
 
@@ -774,6 +1011,18 @@ export default function DeptSnapshot() {
               {sizeTier && ` Peer avg = ${sizeTier} from PSC open data.`}
             </p>
           </div>
+
+          {/* ── Additional context modules ────────────────────────────────── */}
+          <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
+            Additional context
+          </div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
+            <StaffingProcessesModule adv_by_type={data.adv_by_type ?? []} />
+            <MobilityDetailModule mobility_trend={data.mobility_trend ?? []} inflow_by_type={data.inflow_by_type ?? []} />
+          </div>
+          {data.ee_snapshot?.dept?.length > 0 && (
+            <EERepresentationModule ee_snapshot={data.ee_snapshot} isPsTotal={isPsTotal} />
+          )}
         </>
       )}
     </div>

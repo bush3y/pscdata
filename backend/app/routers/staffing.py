@@ -597,21 +597,23 @@ async def get_department_overview(department: str | None = None) -> dict:
         [dept],
     )
 
-    # ── EE snapshot (latest available year for this dept) ───────────────────
+    # ── EE snapshot (latest 2 years for directional change) ─────────────────
     ee_dept = q(
-        "SELECT ee_group_e, SUM(count) AS count FROM dash_demo_ee "
+        "SELECT ee_group_e, fiscal_year, SUM(count) AS count FROM dash_demo_ee "
         "WHERE department_e = ? "
-        "  AND fiscal_year = (SELECT MAX(fiscal_year) FROM dash_demo_ee WHERE department_e = ?) "
-        "GROUP BY ee_group_e ORDER BY ee_group_e",
+        "  AND fiscal_year IN (SELECT DISTINCT fiscal_year FROM dash_demo_ee "
+        "                       WHERE department_e = ? ORDER BY fiscal_year DESC LIMIT 2) "
+        "GROUP BY ee_group_e, fiscal_year ORDER BY fiscal_year DESC, ee_group_e",
         [dept, dept],
     )
     if not is_ps_total:
         ee_ps = q(
-            "SELECT ee_group_e, SUM(count) AS count FROM dash_demo_ee "
+            "SELECT ee_group_e, fiscal_year, SUM(count) AS count FROM dash_demo_ee "
             "WHERE department_e = 'Public Service - Total' "
-            "  AND fiscal_year = (SELECT MAX(fiscal_year) FROM dash_demo_ee "
-            "                     WHERE department_e = 'Public Service - Total') "
-            "GROUP BY ee_group_e ORDER BY ee_group_e",
+            "  AND fiscal_year IN (SELECT DISTINCT fiscal_year FROM dash_demo_ee "
+            "                       WHERE department_e = 'Public Service - Total' "
+            "                       ORDER BY fiscal_year DESC LIMIT 2) "
+            "GROUP BY ee_group_e, fiscal_year ORDER BY fiscal_year DESC, ee_group_e",
         )
     else:
         ee_ps = ee_dept
