@@ -409,7 +409,7 @@ function HiringPipelineModule({ adv_by_type, isPsTotal, advPctPs }: {
   const advYoy = latest.pct != null && prior?.pct != null ? latest.pct - prior.pct : null;
 
   return (
-    <ModuleCard title="Advertised appointment rate" subtitle="Share of appointments made through an open, advertised competitive process">
+    <ModuleCard title="Advertised appointment rate" subtitle="Share of indeterminate appointments made through an open, advertised competitive process">
       <div style={{ fontSize: 28, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 8 }}>
         {latest.pct != null ? `${latest.pct.toFixed(0)}%` : '—'}
         <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>advertised · {latest.fy}</span>
