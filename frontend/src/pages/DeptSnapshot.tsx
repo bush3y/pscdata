@@ -362,10 +362,12 @@ function ModuleCard({ title, subtitle, children }: { title: string; subtitle?: s
   );
 }
 
-// ── Module 1: Staffing processes ─────────────────────────────────────────────
+// ── Module 1: Hiring activity pipeline ──────────────────────────────────────
 
-function StaffingProcessesModule({ adv_by_type }: {
+function HiringPipelineModule({ adv_by_type, isPsTotal, advPctPs }: {
   adv_by_type: { fiscal_year: string; adv_e: string; count: number | null }[];
+  isPsTotal: boolean;
+  advPctPs: number | null;
 }) {
   const years = useMemo(() => {
     const map: Record<string, { total: number; advertised: number }> = {};
@@ -387,8 +389,8 @@ function StaffingProcessesModule({ adv_by_type }: {
   const advYoy = latest.pct != null && prior?.pct != null ? latest.pct - prior.pct : null;
 
   return (
-    <ModuleCard title="Staffing Processes" subtitle="Share of appointments filled through advertised competition">
-      <div style={{ fontSize: 24, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12 }}>
+    <ModuleCard title="Hiring Activity Pipeline" subtitle="Are appointments being filled through open, advertised competition?">
+      <div style={{ fontSize: 28, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12 }}>
         {latest.pct != null ? `${latest.pct.toFixed(0)}%` : '—'}
         <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>advertised · {latest.fy}</span>
       </div>
@@ -401,6 +403,9 @@ function StaffingProcessesModule({ adv_by_type }: {
             value={`${advYoy > 0 ? '↑' : advYoy < 0 ? '↓' : '→'} ${Math.abs(advYoy).toFixed(1)} pts`}
             color={Math.abs(advYoy) < 2 ? '#9ca3af' : advYoy > 0 ? '#15803d' : '#dc2626'}
           />
+        )}
+        {!isPsTotal && advPctPs != null && (
+          <KpiRow label="PS average" value={`${advPctPs.toFixed(0)}%`} color="#9ca3af" />
         )}
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -458,48 +463,48 @@ function EERepresentationModule({ ee_snapshot, isPsTotal }: {
   const yoy = latest.rate != null && prior?.rate != null ? latest.rate - prior.rate : null;
 
   return (
-    <ModuleCard title="Employment Equity in Hiring" subtitle="Share of new hires who self-identified as belonging to an EE group · ~1 year data lag">
-      <div style={{ fontSize: 24, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12 }}>
-        {latest.rate != null ? `${latest.rate.toFixed(1)}%` : '—'}
-        <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>self-identified · {latest.fy}</span>
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '16px 20px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Employment Equity in Hiring</div>
+          <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 2 }}>Share of new hires who self-identified as belonging to an EE group · ~1 year data lag</div>
+        </div>
+        <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1 }}>
+              {latest.rate != null ? `${latest.rate.toFixed(1)}%` : '—'}
+            </div>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>{latest.fy}</div>
+          </div>
+          {yoy != null && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: Math.abs(yoy) < 0.5 ? '#9ca3af' : yoy > 0 ? '#15803d' : '#dc2626' }}>
+                {yoy > 0 ? '↑' : yoy < 0 ? '↓' : '→'} {Math.abs(yoy).toFixed(1)} pts
+              </div>
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>vs prior year</div>
+            </div>
+          )}
+          {!isPsTotal && latest.ratePs != null && (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#9ca3af' }}>{latest.ratePs.toFixed(1)}%</div>
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>PS average</div>
+            </div>
+          )}
+          {years[1]?.rate != null && (
+            <div>
+              <div style={{ fontSize: 13, color: '#6b7280' }}>{years[1].rate.toFixed(1)}%</div>
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>{years[1].fy}</div>
+            </div>
+          )}
+          {years[2]?.rate != null && (
+            <div>
+              <div style={{ fontSize: 13, color: '#6b7280' }}>{years[2].rate.toFixed(1)}%</div>
+              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>{years[2].fy}</div>
+            </div>
+          )}
+        </div>
       </div>
-      <div style={{ marginBottom: 14 }}>
-        {yoy != null && (
-          <KpiRow
-            label="Change vs prior year"
-            value={`${yoy > 0 ? '↑' : yoy < 0 ? '↓' : '→'} ${Math.abs(yoy).toFixed(1)} pts`}
-            color={Math.abs(yoy) < 0.5 ? '#9ca3af' : yoy > 0 ? '#15803d' : '#dc2626'}
-          />
-        )}
-        {!isPsTotal && latest.ratePs != null && (
-          <KpiRow label="PS average" value={`${latest.ratePs.toFixed(1)}%`} color="#9ca3af" />
-        )}
-      </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-            <th style={{ textAlign: 'left', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Year</th>
-            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>This dept</th>
-            {!isPsTotal && <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>PS average</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {years.map((y, i) => (
-            <tr key={y.fy} style={{ background: i % 2 === 1 ? '#f9fafb' : 'transparent' }}>
-              <td style={{ padding: '5px 0', color: '#374151' }}>{y.fy}</td>
-              <td style={{ padding: '5px 0', textAlign: 'right', fontWeight: i === 0 ? 600 : 400, color: '#374151' }}>
-                {y.rate != null ? `${y.rate.toFixed(1)}%` : '—'}
-              </td>
-              {!isPsTotal && (
-                <td style={{ padding: '5px 0', textAlign: 'right', color: '#6b7280' }}>
-                  {y.ratePs != null ? `${y.ratePs.toFixed(1)}%` : '—'}
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </ModuleCard>
+    </div>
   );
 }
 
@@ -915,14 +920,6 @@ export default function DeptSnapshot() {
               yoy={hiringYoy}
               psYoy={!isPsTotal ? hiringYoyPs : undefined}
               highlight
-              extra={data.adv_pct.dept != null ? (
-                <>
-                  <KpiRow label="Via advertised process" value={`${data.adv_pct.dept.toFixed(0)}%`} />
-                  {!isPsTotal && data.adv_pct.ps != null && (
-                    <KpiRow label="PS average" value={`${data.adv_pct.ps.toFixed(0)}%`} color="#9ca3af" />
-                  )}
-                </>
-              ) : undefined}
             />
 
             {/* Leaving */}
@@ -996,13 +993,26 @@ export default function DeptSnapshot() {
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
-            <StaffingProcessesModule adv_by_type={data.adv_by_type ?? []} />
-            <MobilityDetailModule mobility_trend={data.mobility_trend ?? []} inflow_by_type={data.inflow_by_type ?? []} />
-            {data.ee_snapshot?.dept?.length > 0 && (
-              <EERepresentationModule ee_snapshot={data.ee_snapshot} isPsTotal={isPsTotal} />
-            )}
+          {/* ── Staffing context ──────────────────────────────────────────── */}
+          <div style={{ margin: '32px 0 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Staffing context</span>
+            <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
           </div>
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+            <HiringPipelineModule
+              adv_by_type={data.adv_by_type ?? []}
+              isPsTotal={isPsTotal}
+              advPctPs={data.adv_pct.ps}
+            />
+            <MobilityDetailModule mobility_trend={data.mobility_trend ?? []} inflow_by_type={data.inflow_by_type ?? []} />
+          </div>
+
+          {data.ee_snapshot?.dept?.length > 0 && (
+            <div style={{ marginBottom: 28 }}>
+              <EERepresentationModule ee_snapshot={data.ee_snapshot} isPsTotal={isPsTotal} />
+            </div>
+          )}
         </>
       )}
     </div>
