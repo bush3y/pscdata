@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   useStaffingInflow,
   useStaffingOutflow,
@@ -1368,7 +1369,16 @@ function SummaryCards({ summary }: { summary: StaffingSummary }) {
 export default function StaffingDashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>('advertisements');
   const [fiscalYears, setFiscalYears] = useState<string[]>(() => FISCAL_YEARS.slice(-10));
-  const [department, setDepartment] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const department = searchParams.get('dept') ?? '';
+  const setDepartment = (dept: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (dept) next.set('dept', dept);
+      else next.delete('dept');
+      return next;
+    }, { replace: false });
+  };
 
   const filters = useMemo(
     () => ({ fiscal_year: fiscalYears, department }),

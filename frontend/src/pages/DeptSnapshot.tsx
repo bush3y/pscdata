@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -855,7 +856,11 @@ function DeptSelector({ value, onChange }: { value: string | null; onChange: (v:
 // ── Main page ───────────────────────────────────────────────────────────────
 
 export default function DeptSnapshot() {
-  const [selectedDept, setSelectedDept] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedDept = searchParams.get('dept') || null;
+  const setSelectedDept = (dept: string | null) => {
+    setSearchParams(dept ? { dept } : {}, { replace: false });
+  };
   const isPsTotal = !selectedDept;
 
   const { data, isLoading } = useQuery<SnapshotData>({
