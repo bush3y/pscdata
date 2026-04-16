@@ -660,12 +660,17 @@ async def get_department_overview(department: str | None = None) -> dict:
     }
 
     # TBS headcount — latest available year for this dept (for rate per 1,000)
+    # Uses a fuzzy match to handle PSC names that add a parenthetical suffix to
+    # the base TBS name (e.g. "Royal Canadian Mounted Police (Public Service Employees)"
+    # vs TBS "Royal Canadian Mounted Police").
+    _tbs_match = "(dept_e = ? OR STARTS_WITH(?, dept_e || ' ('))"
     if not is_ps_total:
         hc_rows = q(
-            "SELECT year, count FROM tbs_pop_dept "
-            "WHERE dept_e = ? "
-            "  AND year = (SELECT MAX(year) FROM tbs_pop_dept WHERE dept_e = ?)",
-            [dept, dept],
+            f"SELECT year, count FROM tbs_pop_dept "
+            f"WHERE {_tbs_match} "
+            f"  AND year = (SELECT MAX(year) FROM tbs_pop_dept WHERE {_tbs_match}) "
+            f"ORDER BY length(dept_e) DESC LIMIT 1",
+            [dept, dept, dept, dept],
         )
     else:
         hc_rows = q(
@@ -724,10 +729,13 @@ async def get_peer_benchmark(
     if headcount is not None:
         hc = headcount
     else:
+        _tbs_m = "(dept_e = ? OR STARTS_WITH(?, dept_e || ' ('))"
         hc_rows = q(
-            "SELECT count FROM tbs_pop_dept WHERE dept_e = ? "
-            "AND year = (SELECT MAX(year) FROM tbs_pop_dept WHERE dept_e = ?)",
-            [department, department],
+            f"SELECT count FROM tbs_pop_dept "
+            f"WHERE {_tbs_m} "
+            f"AND year = (SELECT MAX(year) FROM tbs_pop_dept WHERE {_tbs_m}) "
+            f"ORDER BY length(dept_e) DESC LIMIT 1",
+            [department, department, department, department],
         )
         if not hc_rows or hc_rows[0]["count"] is None:
             return None
@@ -743,18 +751,21 @@ async def get_peer_benchmark(
     else:
         lo, hi, label = 2000, 9_999_999, "Large"
 
-    # 3. Find peer departments in same tier that exist in PSC data
+    # 3. Find peer departments in same tier that exist in PSC data.
+    # Exclude this department using the same fuzzy match so that TBS rows whose
+    # name is a prefix of the PSC name (e.g. "Royal Canadian Mounted Police")
+    # are not counted as peers of themselves.
     peer_rows = q(
         "SELECT t.dept_e FROM tbs_pop_dept t "
         "WHERE t.year = (SELECT MAX(year) FROM tbs_pop_dept) "
         "  AND t.count >= ? AND t.count <= ? "
-        "  AND t.dept_e != ? "
+        "  AND NOT (t.dept_e = ? OR STARTS_WITH(?, t.dept_e || ' (')) "
         "  AND t.dept_e IN ( "
         "      SELECT DISTINCT department_e FROM dash_inflow "
         "      WHERE department_e != 'Public Service - Total' "
         "        AND department_e IS NOT NULL "
         "  )",
-        [lo, hi, department],
+        [lo, hi, department, department],
     )
     peers = [r["dept_e"] for r in peer_rows]
     if not peers:
