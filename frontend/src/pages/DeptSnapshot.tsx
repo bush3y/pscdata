@@ -14,6 +14,7 @@ interface KpiGroup  { dept: KpiSeries[]; ps: KpiSeries[] }
 interface EeRow { ee_group_e: string; fiscal_year: string; count: number | null }
 
 interface PeerBenchmark {
+  label: string;
   peer_label: string;
   peer_count: number;
   hiring: number | null;
@@ -766,15 +767,11 @@ export default function DeptSnapshot() {
   });
 
   const { data: peerBenchmark } = useQuery<PeerBenchmark | null>({
-    queryKey: ['dept-peer-benchmark', selectedDept, data?.tbs_headcount?.count],
+    queryKey: ['dept-peer-benchmark', selectedDept],
     queryFn: () =>
-      client.get('/staffing/peer-benchmark', {
-        params: {
-          department: selectedDept!,
-          ...(data?.tbs_headcount?.count != null ? { headcount: data.tbs_headcount!.count } : {}),
-        },
-      }).then(r => r.data),
-    enabled: !isPsTotal && !!selectedDept && !!data,
+      client.get('/staffing/peer-benchmark', { params: { department: selectedDept! } })
+        .then(r => r.data),
+    enabled: !isPsTotal && !!selectedDept,
     staleTime: 5 * 60_000,
   });
 
@@ -849,7 +846,7 @@ export default function DeptSnapshot() {
     if (!data) return [];
     const psHiring  = latestVal(data.kpis.total_inflow.ps);
     const psLeaving = latestVal(data.kpis.separations.ps);
-    const pb = isPsTotal ? null : peerBenchmark ?? null;
+    const pb = peerBenchmark ?? null;
     return [
       {
         label: 'Hiring (latest year)',
@@ -1052,7 +1049,7 @@ export default function DeptSnapshot() {
             />
             <p style={{ fontSize: 11, color: '#9ca3af', margin: '10px 0 0' }}>
               YoY comparisons are FYTD-normalized when current year is partial.
-              {peerBenchmark && ` Peer avg across ${peerBenchmark.peer_count} ${peerBenchmark.peer_label.replace(' avg', '')} departments.`}
+              {peerBenchmark && ` Peer avg across ${peerBenchmark.peer_count} ${peerBenchmark.label} org departments.`}
             </p>
           </div>
 

@@ -9,6 +9,12 @@ from app.database import query_to_records
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/staffing", tags=["staffing"])
 
+# Matches a TBS dept_e against a PSC department name that may carry a
+# parenthetical suffix (e.g. "Royal Canadian Mounted Police (Public Service Employees)"
+# → "Royal Canadian Mounted Police"). Requires two params: (psc_name, psc_name).
+_TBS_FUZZY   = "(dept_e = ? OR STARTS_WITH(?, dept_e || ' ('))"
+_TBS_FUZZY_T = "(t.dept_e = ? OR STARTS_WITH(?, t.dept_e || ' ('))"  # with table alias t
+
 _DEMO_TABLE_MAP = {
     "ee":  "dash_demo_ee",
     "age": "dash_demo_age",
@@ -660,15 +666,11 @@ async def get_department_overview(department: str | None = None) -> dict:
     }
 
     # TBS headcount — latest available year for this dept (for rate per 1,000)
-    # Uses a fuzzy match to handle PSC names that add a parenthetical suffix to
-    # the base TBS name (e.g. "Royal Canadian Mounted Police (Public Service Employees)"
-    # vs TBS "Royal Canadian Mounted Police").
-    _tbs_match = "(dept_e = ? OR STARTS_WITH(?, dept_e || ' ('))"
     if not is_ps_total:
         hc_rows = q(
             f"SELECT year, count FROM tbs_pop_dept "
-            f"WHERE {_tbs_match} "
-            f"  AND year = (SELECT MAX(year) FROM tbs_pop_dept WHERE {_tbs_match}) "
+            f"WHERE {_TBS_FUZZY} "
+            f"  AND year = (SELECT MAX(year) FROM tbs_pop_dept WHERE {_TBS_FUZZY}) "
             f"ORDER BY length(dept_e) DESC LIMIT 1",
             [dept, dept, dept, dept],
         )
@@ -710,61 +712,39 @@ async def get_department_overview(department: str | None = None) -> dict:
 
 
 @router.get("/peer-benchmark")
-async def get_peer_benchmark(
-    department: str,
-    headcount: int | None = None,
-) -> dict | None:
-    """Averaged comparison metrics for departments in the same TBS size tier.
-
-    Accepts an optional *headcount* (from the frontend's already-loaded TBS
-    data) to avoid a TBS name-lookup that fails when PSC and TBS use different
-    department name strings (e.g. RCMP).  Falls back to a TBS lookup when
-    headcount is not supplied.
-    Returns None if headcount cannot be determined.
-    """
+async def get_peer_benchmark(department: str) -> dict | None:
+    """Averaged comparison metrics for departments in the same TBS size tier."""
     def q(sql: str, params=None) -> list[dict]:
         return query_to_records(sql, params or None)
 
-    # 1. Resolve headcount — prefer caller-supplied value to avoid name mismatch
-    if headcount is not None:
-        hc = headcount
-    else:
-        _tbs_m = "(dept_e = ? OR STARTS_WITH(?, dept_e || ' ('))"
-        hc_rows = q(
-            f"SELECT count FROM tbs_pop_dept "
-            f"WHERE {_tbs_m} "
-            f"AND year = (SELECT MAX(year) FROM tbs_pop_dept WHERE {_tbs_m}) "
-            f"ORDER BY length(dept_e) DESC LIMIT 1",
-            [department, department, department, department],
-        )
-        if not hc_rows or hc_rows[0]["count"] is None:
-            return None
-        hc = hc_rows[0]["count"]
+    # Resolve headcount via fuzzy TBS name match
+    hc_rows = q(
+        f"SELECT count FROM tbs_pop_dept "
+        f"WHERE {_TBS_FUZZY} "
+        f"  AND year = (SELECT MAX(year) FROM tbs_pop_dept WHERE {_TBS_FUZZY}) "
+        f"ORDER BY length(dept_e) DESC LIMIT 1",
+        [department, department, department, department],
+    )
+    if not hc_rows or hc_rows[0]["count"] is None:
+        return None
+    hc = hc_rows[0]["count"]
 
-    # 2. Size tier thresholds (match frontend)
-    if hc < 100:
-        lo, hi, label = 0, 99, "Micro"
-    elif hc < 500:
-        lo, hi, label = 100, 499, "Small"
-    elif hc < 2000:
-        lo, hi, label = 500, 1999, "Medium"
-    else:
-        lo, hi, label = 2000, 9_999_999, "Large"
+    if hc < 100:    lo, hi, label = 0, 99, "Micro"
+    elif hc < 500:  lo, hi, label = 100, 499, "Small"
+    elif hc < 2000: lo, hi, label = 500, 1999, "Medium"
+    else:           lo, hi, label = 2000, 9_999_999, "Large"
 
-    # 3. Find peer departments in same tier that exist in PSC data.
-    # Exclude this department using the same fuzzy match so that TBS rows whose
-    # name is a prefix of the PSC name (e.g. "Royal Canadian Mounted Police")
-    # are not counted as peers of themselves.
+    # Peer departments: same tier, in PSC data, excluding this department
     peer_rows = q(
-        "SELECT t.dept_e FROM tbs_pop_dept t "
-        "WHERE t.year = (SELECT MAX(year) FROM tbs_pop_dept) "
-        "  AND t.count >= ? AND t.count <= ? "
-        "  AND NOT (t.dept_e = ? OR STARTS_WITH(?, t.dept_e || ' (')) "
-        "  AND t.dept_e IN ( "
-        "      SELECT DISTINCT department_e FROM dash_inflow "
-        "      WHERE department_e != 'Public Service - Total' "
-        "        AND department_e IS NOT NULL "
-        "  )",
+        f"SELECT t.dept_e FROM tbs_pop_dept t "
+        f"WHERE t.year = (SELECT MAX(year) FROM tbs_pop_dept) "
+        f"  AND t.count >= ? AND t.count <= ? "
+        f"  AND NOT ({_TBS_FUZZY_T}) "
+        f"  AND t.dept_e IN ( "
+        f"      SELECT DISTINCT department_e FROM dash_inflow "
+        f"      WHERE department_e != 'Public Service - Total' "
+        f"        AND department_e IS NOT NULL "
+        f"  )",
         [lo, hi, department, department],
     )
     peers = [r["dept_e"] for r in peer_rows]
@@ -773,71 +753,70 @@ async def get_peer_benchmark(
 
     ph = ", ".join(["?" for _ in peers])
 
-    # 4. Detect latest and prior fiscal years
-    fy_rows = q(
-        "SELECT fiscal_year FROM dash_inflow "
-        "WHERE department_e != 'Public Service - Total' "
-        "GROUP BY fiscal_year ORDER BY fiscal_year DESC LIMIT 2"
-    )
-    if not fy_rows:
-        return None
-    latest_fy = fy_rows[0]["fiscal_year"]
-    prior_fy  = fy_rows[1]["fiscal_year"] if len(fy_rows) > 1 else None
-
-    # 5. Detect q_count for FYTD normalisation
-    qmap = {"Q1": 1, "Q2": 2, "Q3": 3, "Q4": 4}
-    qr = q(
-        "SELECT quarter FROM dash_inflow "
+    # Latest + prior fiscal years and q_count in one query
+    fy_q_rows = q(
+        "SELECT fiscal_year, quarter FROM dash_inflow "
         "WHERE department_e = 'Public Service - Total' "
-        "  AND fiscal_year = ? LIMIT 1",
-        [latest_fy],
+        "GROUP BY fiscal_year, quarter ORDER BY fiscal_year DESC LIMIT 2"
     )
-    q_count = qmap.get(str(qr[0]["quarter"] or ""), 4) if qr else 4
+    if not fy_q_rows:
+        return None
+    latest_fy = fy_q_rows[0]["fiscal_year"]
+    prior_fy  = fy_q_rows[1]["fiscal_year"] if len(fy_q_rows) > 1 else None
+    q_count   = {"Q1": 1, "Q2": 2, "Q3": 3, "Q4": 4}.get(str(fy_q_rows[0]["quarter"] or ""), 4)
 
-    # Helper: avg of per-department SUMs for a given table/FY/filter
-    def _avg(table: str, fy: str, extra_where: str = "", extra_params: list | None = None) -> float | None:
-        ep = extra_params or []
-        rows = q(
-            f"SELECT SUM(count) AS dept_total FROM {table} "  # noqa: S608
-            f"WHERE fiscal_year = ? AND department_e IN ({ph}) {extra_where} "
-            f"GROUP BY department_e",
-            [fy] + peers + ep,
-        )
-        vals = [r["dept_total"] for r in rows if r["dept_total"] is not None]
+    def _avg(col: str, rows: list[dict]) -> float | None:
+        vals = [r[col] for r in rows if r[col] is not None]
         return round(sum(vals) / len(vals), 1) if vals else None
 
-    def _avg_qtr(table: str, fy: str, extra_where: str = "", extra_params: list | None = None) -> float | None:
-        ep = extra_params or []
-        rows = q(
-            f"SELECT SUM(qtr_count) AS dept_qtr FROM {table} "  # noqa: S608
-            f"WHERE fiscal_year = ? AND department_e IN ({ph}) {extra_where} "
-            f"GROUP BY department_e",
-            [fy] + peers + ep,
-        )
-        vals = [r["dept_qtr"] for r in rows if r["dept_qtr"] is not None]
-        return round(sum(vals) / len(vals), 1) if vals else None
-
-    def _yoy(latest: float | None, prior_total: float | None, prior_qtr: float | None) -> float | None:
-        if latest is None or prior_total is None:
+    def _yoy(latest: float | None, prior: float | None, prior_qtr: float | None) -> float | None:
+        if latest is None or prior is None:
             return None
-        prior_fytd = prior_qtr if prior_qtr is not None else prior_total * (q_count / 4)
-        if prior_fytd == 0:
-            return None
-        return round((latest - prior_fytd) / prior_fytd * 100, 1)
+        fytd = prior_qtr if prior_qtr is not None else prior * (q_count / 4)
+        return round((latest - fytd) / fytd * 100, 1) if fytd else None
 
-    # 6. Compute metrics
-    hiring_latest    = _avg("dash_inflow", latest_fy)
-    hiring_prior     = _avg("dash_inflow", prior_fy) if prior_fy else None
-    hiring_prior_qtr = _avg_qtr("dash_inflow", prior_fy) if prior_fy else None
+    # Inflow + outflow averages: both years and both count/qtr_count in two queries
+    fys = [latest_fy] + ([prior_fy] if prior_fy else [])
+    fy_ph = ", ".join(["?" for _ in fys])
 
-    sep_latest    = _avg("dash_outflow", latest_fy)
-    sep_prior     = _avg("dash_outflow", prior_fy) if prior_fy else None
-    sep_prior_qtr = _avg_qtr("dash_outflow", prior_fy) if prior_fy else None
+    inflow_rows = q(
+        f"SELECT fiscal_year, AVG(dept_total) AS avg_total, AVG(dept_qtr) AS avg_qtr "
+        f"FROM ( "
+        f"  SELECT fiscal_year, department_e, "
+        f"         SUM(count) AS dept_total, SUM(qtr_count) AS dept_qtr "
+        f"  FROM dash_inflow "
+        f"  WHERE fiscal_year IN ({fy_ph}) AND department_e IN ({ph}) "
+        f"  GROUP BY fiscal_year, department_e "
+        f") sub GROUP BY fiscal_year",
+        fys + peers,
+    )
+    outflow_rows = q(
+        f"SELECT fiscal_year, AVG(dept_total) AS avg_total, AVG(dept_qtr) AS avg_qtr "
+        f"FROM ( "
+        f"  SELECT fiscal_year, department_e, "
+        f"         SUM(count) AS dept_total, SUM(qtr_count) AS dept_qtr "
+        f"  FROM dash_outflow "
+        f"  WHERE fiscal_year IN ({fy_ph}) AND department_e IN ({ph}) "
+        f"  GROUP BY fiscal_year, department_e "
+        f") sub GROUP BY fiscal_year",
+        fys + peers,
+    )
+
+    def _fy(rows: list[dict], fy: str, col: str) -> float | None:
+        val = next((r[col] for r in rows if r["fiscal_year"] == fy), None)
+        return round(val, 1) if val is not None else None
+
+    hiring_latest    = _fy(inflow_rows,  latest_fy, "avg_total")
+    hiring_prior     = _fy(inflow_rows,  prior_fy,  "avg_total") if prior_fy else None
+    hiring_prior_qtr = _fy(inflow_rows,  prior_fy,  "avg_qtr")   if prior_fy else None
+    sep_latest       = _fy(outflow_rows, latest_fy, "avg_total")
+    sep_prior        = _fy(outflow_rows, prior_fy,  "avg_total") if prior_fy else None
+    sep_prior_qtr    = _fy(outflow_rows, prior_fy,  "avg_qtr")   if prior_fy else None
 
     # Mobility rate: avg across peers of (mob_total / inflow_total * 100)
     mob_rows = q(
-        f"SELECT m.department_e, "
-        f"  CASE WHEN i.total > 0 THEN CAST(m.mob_total AS REAL) / i.total * 100 ELSE NULL END AS rate "
+        f"SELECT CASE WHEN i.total > 0 "
+        f"            THEN CAST(m.mob_total AS REAL) / i.total * 100 ELSE NULL END AS rate "
         f"FROM ( "
         f"  SELECT department_e, SUM(count) AS mob_total FROM dash_internal_mobility "
         f"  WHERE fiscal_year = ? AND department_e IN ({ph}) GROUP BY department_e "
@@ -848,33 +827,28 @@ async def get_peer_benchmark(
         f") i ON m.department_e = i.department_e",
         [latest_fy] + peers + [latest_fy] + peers,
     )
-    mob_vals = [r["rate"] for r in mob_rows if r["rate"] is not None]
-    mob_rate = round(sum(mob_vals) / len(mob_vals), 1) if mob_vals else None
 
     # Advertised %: avg across peers of (advertised / total * 100)
     adv_rows = q(
-        f"SELECT department_e, "
-        f"  CASE WHEN SUM(count) > 0 "
-        f"       THEN CAST(SUM(CASE WHEN adv_e = 'Advertised Process' THEN count ELSE 0 END) AS REAL) "
-        f"            / SUM(count) * 100 "
-        f"       ELSE NULL END AS pct "
+        f"SELECT CASE WHEN SUM(count) > 0 "
+        f"            THEN CAST(SUM(CASE WHEN adv_e = 'Advertised Process' THEN count ELSE 0 END) AS REAL) "
+        f"                 / SUM(count) * 100 ELSE NULL END AS pct "
         f"FROM dash_adv_type "
         f"WHERE fiscal_year = ? AND department_e IN ({ph}) "
         f"GROUP BY department_e",
         [latest_fy] + peers,
     )
-    adv_vals = [r["pct"] for r in adv_rows if r["pct"] is not None]
-    adv_pct = round(sum(adv_vals) / len(adv_vals), 1) if adv_vals else None
 
     return {
+        "label": label,
         "peer_label": f"{label} org avg",
         "peer_count": len(peers),
         "hiring": hiring_latest,
         "hiring_yoy": _yoy(hiring_latest, hiring_prior, hiring_prior_qtr),
         "separations": sep_latest,
         "separations_yoy": _yoy(sep_latest, sep_prior, sep_prior_qtr),
-        "mobility_rate": mob_rate,
-        "adv_pct": adv_pct,
+        "mobility_rate": _avg("rate", mob_rows),
+        "adv_pct": _avg("pct", adv_rows),
     }
 
 
