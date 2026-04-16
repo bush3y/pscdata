@@ -591,12 +591,17 @@ function MobilityDetailModule({ mobility_trend, inflow_by_type }: {
   mobility_trend: { fiscal_year: string; mob_type_e: string; count: number | null }[];
   inflow_by_type: { fiscal_year: string; hire_e: string; count: number | null }[];
 }) {
+  const MOB_TYPE_LABEL: Record<string, string> = {
+    'Acting':              'Acting (>4 months)',
+    'Promotion':           'Promotions',
+    'Lateral or downward': 'Lateral / other',
+  };
+
   const years = useMemo(() => {
     const fys = [...new Set(mobility_trend.map(r => r.fiscal_year))].sort().reverse().slice(0, 3);
     return fys.map(fy => {
-      const mobTotal = mobility_trend
-        .filter(r => r.fiscal_year === fy)
-        .reduce((s, r) => s + (r.count ?? 0), 0);
+      const byType = mobility_trend.filter(r => r.fiscal_year === fy);
+      const mobTotal = byType.reduce((s, r) => s + (r.count ?? 0), 0);
 
       const inflowTotal = inflow_by_type
         .filter(r => r.fiscal_year === fy)
@@ -606,9 +611,15 @@ function MobilityDetailModule({ mobility_trend, inflow_by_type }: {
         .filter(r => r.fiscal_year === fy && INTERNAL_HIRE_TYPES.has(r.hire_e))
         .reduce((s, r) => s + (r.count ?? 0), 0);
 
+      const breakdown = Object.entries(MOB_TYPE_LABEL).map(([key, label]) => {
+        const count = byType.find(r => r.mob_type_e === key)?.count ?? 0;
+        return { label, count, pct: mobTotal > 0 ? (count / mobTotal) * 100 : null };
+      });
+
       return {
         fy,
         mobTotal,
+        breakdown,
         mobRate: inflowTotal > 0 ? (mobTotal / inflowTotal) * 100 : null,
         internalPct: inflowTotal > 0 ? (internalTransfers / inflowTotal) * 100 : null,
       };
@@ -643,6 +654,27 @@ function MobilityDetailModule({ mobility_trend, inflow_by_type }: {
           />
         )}
       </div>
+
+      {/* Breakdown by move type */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 16 }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
+            <th style={{ textAlign: 'left', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Action type</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Count</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>% of moves</th>
+          </tr>
+        </thead>
+        <tbody>
+          {latest.breakdown.map((row, i) => (
+            <tr key={row.label} style={{ background: i % 2 === 1 ? '#f9fafb' : 'transparent' }}>
+              <td style={{ padding: '5px 0', color: '#374151' }}>{row.label}</td>
+              <td style={{ padding: '5px 0', textAlign: 'right', color: '#6b7280' }}>{row.count.toLocaleString()}</td>
+              <td style={{ padding: '5px 0', textAlign: 'right', fontWeight: 600, color: '#374151' }}>{row.pct != null ? `${row.pct.toFixed(0)}%` : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
         <thead>
           <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
