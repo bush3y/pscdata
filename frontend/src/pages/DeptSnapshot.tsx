@@ -44,6 +44,7 @@ interface SnapshotData {
   inflow_by_type:  { fiscal_year: string; hire_e: string; count: number | null }[];
   mobility_trend:  { fiscal_year: string; mob_type_e: string; count: number | null }[];
   adv_by_type:     { fiscal_year: string; adv_e: string; count: number | null }[];
+  adv_processes:   { fiscal_year: string; total: number; internal_only: number; external: number }[];
   ee_snapshot:     { dept: EeRow[]; ps: EeRow[] };
   tbs_headcount: { year: number; count: number } | null;
 }
@@ -384,8 +385,17 @@ function ModuleCard({ title, subtitle, children }: { title: string; subtitle?: s
 
 // ── Module 1: Hiring activity pipeline ──────────────────────────────────────
 
-function HiringPipelineModule({ adv_by_type, isPsTotal, advPctPs }: {
-  adv_by_type: { fiscal_year: string; adv_e: string; count: number | null }[];
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '16px 0 8px', paddingBottom: 4, borderBottom: '1px solid #f3f4f6' }}>
+      {children}
+    </div>
+  );
+}
+
+function HiringPipelineModule({ adv_by_type, adv_processes, isPsTotal, advPctPs }: {
+  adv_by_type:   { fiscal_year: string; adv_e: string; count: number | null }[];
+  adv_processes: { fiscal_year: string; total: number; internal_only: number; external: number }[];
   isPsTotal: boolean;
   advPctPs: number | null;
 }) {
@@ -402,24 +412,38 @@ function HiringPipelineModule({ adv_by_type, isPsTotal, advPctPs }: {
       .map(([fy, v]) => ({ fy, ...v, pct: v.total > 0 ? (v.advertised / v.total) * 100 : null }));
   }, [adv_by_type]);
 
+  const procByYear = useMemo(() =>
+    [...adv_processes].sort((a, b) => b.fiscal_year.localeCompare(a.fiscal_year)).slice(0, 3),
+    [adv_processes]
+  );
+
   if (!years.length) return null;
 
-  const latest = years[0];
-  const prior  = years[1];
-  const advYoy = latest.pct != null && prior?.pct != null ? latest.pct - prior.pct : null;
+  const latest     = years[0];
+  const prior      = years[1];
+  const advYoy     = latest.pct != null && prior?.pct != null ? latest.pct - prior.pct : null;
+  const latestProc = procByYear[0] ?? null;
+  const priorProc  = procByYear[1] ?? null;
+  const procYoy    = latestProc != null && priorProc != null ? latestProc.total - priorProc.total : null;
+
+  // Merge appointment % and process count for the 3-year table
+  const tableRows = years.map(y => ({
+    ...y,
+    processes: procByYear.find(p => p.fiscal_year === y.fy)?.total ?? null,
+  }));
 
   return (
     <ModuleCard title="Advertised appointment rate" subtitle="Share of indeterminate appointments made through an open, advertised competitive process">
       <div style={{ fontSize: 28, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 8 }}>
         {latest.pct != null ? `${latest.pct.toFixed(0)}%` : '—'}
-        <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>advertised · {latest.fy}</span>
+        <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>of indet. appointments · {latest.fy}</span>
       </div>
       <div style={{ height: 6, background: '#f3f4f6', borderRadius: 99, marginBottom: 14 }}>
         <div style={{ height: 6, width: `${Math.min(latest.pct ?? 0, 100)}%`, background: '#1d3557', borderRadius: 99, transition: 'width 0.4s' }} />
       </div>
       <div style={{ marginBottom: 14 }}>
         <KpiRow label="Advertised appointments" value={latest.advertised.toLocaleString()} />
-        <KpiRow label="Total appointments" value={latest.total.toLocaleString()} color="#9ca3af" />
+        <KpiRow label="Total indeterminate appointments" value={latest.total.toLocaleString()} color="#9ca3af" />
         {advYoy != null && (
           <KpiRow
             label="Change vs prior year"
@@ -431,26 +455,70 @@ function HiringPipelineModule({ adv_by_type, isPsTotal, advPctPs }: {
           <KpiRow label="PS average" value={`${advPctPs.toFixed(0)}%`} color="#9ca3af" />
         )}
       </div>
+
+      {latestProc != null && (
+        <>
+          <SectionLabel>Advertised processes launched</SectionLabel>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 8 }}>
+            {latestProc.total.toLocaleString()}
+            <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>processes · {latestProc.fiscal_year}</span>
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            {procYoy != null && (
+              <KpiRow
+                label="Change vs prior year"
+                value={`${procYoy > 0 ? '↑' : procYoy < 0 ? '↓' : '→'} ${Math.abs(procYoy).toLocaleString()}`}
+                color={procYoy === 0 ? '#9ca3af' : procYoy > 0 ? '#15803d' : '#dc2626'}
+              />
+            )}
+            {latestProc.total > 0 && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 11.5, color: '#6b7280' }}>Internal only <TooltipIcon text="Open to existing PS employees only" /></span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>{latestProc.internal_only.toLocaleString()} <span style={{ fontWeight: 400, color: '#9ca3af' }}>({Math.round(latestProc.internal_only / latestProc.total * 100)}%)</span></span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 11.5, color: '#6b7280' }}>External <TooltipIcon text="Open to the general public" /></span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>{latestProc.external.toLocaleString()} <span style={{ fontWeight: 400, color: '#9ca3af' }}>({Math.round(latestProc.external / latestProc.total * 100)}%)</span></span>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      <div style={{ borderTop: '1px solid #f3f4f6', marginBottom: 10 }} />
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
         <thead>
           <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
             <th style={{ textAlign: 'left', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Year</th>
-            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Total</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Indet. appts</th>
             <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Advertised</th>
-            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>% advertised</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>% adv.</th>
+            {tableRows.some(r => r.processes != null) && (
+              <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Processes</th>
+            )}
           </tr>
         </thead>
         <tbody>
-          {years.map((y, i) => (
+          {tableRows.map((y, i) => (
             <tr key={y.fy} style={{ background: i % 2 === 1 ? '#f9fafb' : 'transparent' }}>
               <td style={{ padding: '5px 0', color: '#374151' }}>{y.fy}</td>
               <td style={{ padding: '5px 0', textAlign: 'right', color: '#6b7280' }}>{y.total.toLocaleString()}</td>
               <td style={{ padding: '5px 0', textAlign: 'right', color: '#374151', fontWeight: i === 0 ? 600 : 400 }}>{y.advertised.toLocaleString()}</td>
               <td style={{ padding: '5px 0', textAlign: 'right', color: '#374151', fontWeight: i === 0 ? 600 : 400 }}>{y.pct != null ? `${y.pct.toFixed(0)}%` : '—'}</td>
+              {tableRows.some(r => r.processes != null) && (
+                <td style={{ padding: '5px 0', textAlign: 'right', color: i === 0 ? '#374151' : '#6b7280', fontWeight: i === 0 ? 600 : 400 }}>
+                  {y.processes != null ? y.processes.toLocaleString() : '—'}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
       </table>
+      <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>
+        Process counts from PSC raw advertisements (INT + JOP). Internal/external split based on advertisement audience flags.
+      </p>
     </ModuleCard>
   );
 }
@@ -1094,6 +1162,7 @@ export default function DeptSnapshot() {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
             <HiringPipelineModule
               adv_by_type={data.adv_by_type ?? []}
+              adv_processes={data.adv_processes ?? []}
               isPsTotal={isPsTotal}
               advPctPs={data.adv_pct.ps}
             />

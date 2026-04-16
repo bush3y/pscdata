@@ -14,6 +14,10 @@ router = APIRouter(prefix="/staffing", tags=["staffing"])
 # → "Royal Canadian Mounted Police"). Requires two params: (psc_name, psc_name).
 _TBS_FUZZY   = "(dept_e = ? OR STARTS_WITH(?, dept_e || ' ('))"
 _TBS_FUZZY_T = "(t.dept_e = ? OR STARTS_WITH(?, t.dept_e || ' ('))"  # with table alias t
+# Matches a raw_advertisements organization_e against a PSC department name that may carry
+# a parenthetical suffix (e.g. "Royal Canadian Mounted Police (Public Service Employees)"
+# → organization_e "Royal Canadian Mounted Police"). Requires two params: (dept, dept).
+_ORG_FUZZY   = "(organization_e = ? OR STARTS_WITH(?, organization_e || ' ('))"
 
 _DEMO_TABLE_MAP = {
     "ee":  "dash_demo_ee",
@@ -603,6 +607,27 @@ async def get_department_overview(department: str | None = None) -> dict:
         [dept],
     )
 
+    # ── Advertised processes from raw_advertisements (INT + JOP, last 3 FY) ────
+    _adv_proc_select = (
+        "SELECT fiscal_year, COUNT(*) AS total, "
+        "  CAST(SUM(CASE WHEN internal_indicator = '1' AND external_indicator = '0' THEN 1 ELSE 0 END) AS INTEGER) AS internal_only, "
+        "  CAST(SUM(CASE WHEN external_indicator = '1' THEN 1 ELSE 0 END) AS INTEGER) AS external "
+        "FROM raw_advertisements "
+    )
+    if not is_ps_total:
+        adv_processes = q(
+            _adv_proc_select +
+            f"WHERE {_ORG_FUZZY} AND recruitment_program_e IN ('INT', 'JOP') "
+            "GROUP BY fiscal_year ORDER BY fiscal_year DESC LIMIT 3",
+            [dept, dept],
+        )
+    else:
+        adv_processes = q(
+            _adv_proc_select +
+            "WHERE recruitment_program_e IN ('INT', 'JOP') "
+            "GROUP BY fiscal_year ORDER BY fiscal_year DESC LIMIT 3",
+        )
+
     # ── EE self-identification rate (latest 3 years for trend + direction) ────
     ee_dept = q(
         "SELECT ee_group_e, fiscal_year, SUM(count) AS count FROM dash_demo_ee "
@@ -706,6 +731,7 @@ async def get_department_overview(department: str | None = None) -> dict:
         "applications_trend": apps_trend,
         "outflow_by_reason": outflow_by_reason,
         "adv_by_type":       adv_by_type,
+        "adv_processes":     adv_processes,
         "ee_snapshot":       {"dept": ee_dept, "ps": ee_ps},
         "age_snapshot":      {"dept": age_dept, "ps": age_ps},
     }
