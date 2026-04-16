@@ -424,7 +424,9 @@ function HiringPipelineModule({ adv_by_type, adv_processes, isPsTotal, advPctPs 
   const advYoy     = latest.pct != null && prior?.pct != null ? latest.pct - prior.pct : null;
   const latestProc = procByYear[0] ?? null;
   const priorProc  = procByYear[1] ?? null;
-  const procYoy    = latestProc != null && priorProc != null ? latestProc.total - priorProc.total : null;
+  const procYoy    = latestProc != null && priorProc != null && priorProc.total > 0
+    ? ((latestProc.total - priorProc.total) / priorProc.total) * 100
+    : null;
 
   // Merge appointment % and process count for the 3-year table
   const tableRows = years.map(y => ({
@@ -456,37 +458,6 @@ function HiringPipelineModule({ adv_by_type, adv_processes, isPsTotal, advPctPs 
         )}
       </div>
 
-      {latestProc != null && (
-        <>
-          <SectionLabel>Advertised processes launched</SectionLabel>
-          <div style={{ fontSize: 24, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 8 }}>
-            {latestProc.total.toLocaleString()}
-            <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>processes · {latestProc.fiscal_year}</span>
-          </div>
-          <div style={{ marginBottom: 14 }}>
-            {procYoy != null && (
-              <KpiRow
-                label="Change vs prior year"
-                value={`${procYoy > 0 ? '↑' : procYoy < 0 ? '↓' : '→'} ${Math.abs(procYoy).toLocaleString()}`}
-                color={procYoy === 0 ? '#9ca3af' : procYoy > 0 ? '#15803d' : '#dc2626'}
-              />
-            )}
-            {latestProc.total > 0 && (
-              <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <span style={{ fontSize: 11.5, color: '#6b7280' }}>Internal only <TooltipIcon text="Open to existing PS employees only" /></span>
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>{latestProc.internal_only.toLocaleString()} <span style={{ fontWeight: 400, color: '#9ca3af' }}>({Math.round(latestProc.internal_only / latestProc.total * 100)}%)</span></span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <span style={{ fontSize: 11.5, color: '#6b7280' }}>External <TooltipIcon text="Open to the general public" /></span>
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>{latestProc.external.toLocaleString()} <span style={{ fontWeight: 400, color: '#9ca3af' }}>({Math.round(latestProc.external / latestProc.total * 100)}%)</span></span>
-                </div>
-              </>
-            )}
-          </div>
-        </>
-      )}
-
       <div style={{ borderTop: '1px solid #f3f4f6', marginBottom: 10 }} />
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
         <thead>
@@ -516,9 +487,40 @@ function HiringPipelineModule({ adv_by_type, adv_processes, isPsTotal, advPctPs 
           ))}
         </tbody>
       </table>
-      <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>
-        Process counts from PSC raw advertisements (INT + JOP). Internal/external split based on advertisement audience flags.
-      </p>
+
+      {latestProc != null && (
+        <>
+          <SectionLabel>Advertised processes launched</SectionLabel>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 8 }}>
+            {latestProc.total.toLocaleString()}
+            <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>processes · {latestProc.fiscal_year}</span>
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            {procYoy != null && (
+              <KpiRow
+                label="Change vs prior year"
+                value={`${procYoy > 0 ? '↑' : procYoy < 0 ? '↓' : '→'} ${Math.abs(procYoy).toFixed(1)}%`}
+                color={Math.abs(procYoy) < 5 ? '#9ca3af' : procYoy > 0 ? '#15803d' : '#dc2626'}
+              />
+            )}
+            {latestProc.total > 0 && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 11.5, color: '#6b7280' }}>Internal only <TooltipIcon text="Open to existing PS employees only" /></span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>{latestProc.internal_only.toLocaleString()} <span style={{ fontWeight: 400, color: '#9ca3af' }}>({Math.round(latestProc.internal_only / latestProc.total * 100)}%)</span></span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 11.5, color: '#6b7280' }}>External <TooltipIcon text="Open to the general public" /></span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>{latestProc.external.toLocaleString()} <span style={{ fontWeight: 400, color: '#9ca3af' }}>({Math.round(latestProc.external / latestProc.total * 100)}%)</span></span>
+                </div>
+              </>
+            )}
+          </div>
+          <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+            Process counts from PSC raw advertisements (INT + JOP). Internal/external split based on advertisement audience flags.
+          </p>
+        </>
+      )}
     </ModuleCard>
   );
 }
