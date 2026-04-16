@@ -63,21 +63,6 @@ function yoyPct(arr: KpiSeries[], qCount: number): number | null {
   return ((curr - priorFytd) / priorFytd) * 100;
 }
 
-function sizeTierFromHeadcount(hc: number): string {
-  if (hc < 100)  return 'Micro - Average';
-  if (hc < 500)  return 'Small - Average';
-  if (hc < 2000) return 'Medium - Average';
-  return 'Large - Average';
-}
-
-function sizeTierLabel(tier: string): string {
-  const map: Record<string, string> = {
-    'Micro - Average': 'Micro', 'Small - Average': 'Small',
-    'Medium - Average': 'Medium', 'Large - Average': 'Large',
-  };
-  return map[tier] ?? 'Peer';
-}
-
 // ── Opinionated headline ────────────────────────────────────────────────────
 
 interface HeadlineParams {
@@ -769,20 +754,6 @@ export default function DeptSnapshot() {
     staleTime: 60_000,
   });
 
-  const sizeTier = useMemo(() => {
-    const hc = data?.tbs_headcount?.count;
-    if (!hc || isPsTotal) return null;
-    return sizeTierFromHeadcount(hc);
-  }, [data, isPsTotal]);
-
-  const { data: peerData } = useQuery<SnapshotData>({
-    queryKey: ['dept-snapshot-peer', sizeTier],
-    queryFn: () =>
-      client.get('/staffing/department-overview', { params: { department: sizeTier! } }).then(r => r.data),
-    enabled: !!sizeTier,
-    staleTime: 5 * 60_000,
-  });
-
   // ── Computed values ──────────────────────────────────────────────────────
 
   const qCount = data?.q_count ?? 4;
@@ -814,15 +785,6 @@ export default function DeptSnapshot() {
     return (p ?? 0) + (a ?? 0) + (l ?? 0);
   }, [data]);
 
-  const peerMobilityPct = useMemo(() => {
-    if (!peerData || !sizeTier) return null;
-    const peerHiring = latestVal(peerData.kpis.total_inflow.dept);
-    const peerMob = (latestVal(peerData.kpis.promotions.dept) ?? 0)
-      + (latestVal(peerData.kpis.acting.dept) ?? 0)
-      + (latestVal(peerData.kpis.lateral.dept) ?? 0);
-    return peerHiring && peerHiring > 0 ? (peerMob / peerHiring) * 100 : null;
-  }, [peerData, sizeTier]);
-
   const psHiringVal   = latestVal(data?.kpis.total_inflow.ps ?? []);
   const mobilityPct   = mobilityVal != null && hiringVal   != null && hiringVal   > 0 ? (mobilityVal   / hiringVal)   * 100 : null;
   const mobilityPctPs = mobilityValPs != null && psHiringVal != null && psHiringVal > 0 ? (mobilityValPs / psHiringVal) * 100 : null;
@@ -847,13 +809,6 @@ export default function DeptSnapshot() {
     advPctPs: data.adv_pct.ps,
   }) : null;
 
-  // Peer metrics (for comparison table)
-  const peerHiringVal  = peerData ? latestVal(peerData.kpis.total_inflow.dept) : null;
-  const peerLeavingVal = peerData ? latestVal(peerData.kpis.separations.dept)  : null;
-  const peerHiringYoy  = peerData ? yoyPct(peerData.kpis.total_inflow.dept, peerData.q_count) : null;
-  const peerLeavingYoy = peerData ? yoyPct(peerData.kpis.separations.dept,  peerData.q_count) : null;
-  const peerAdvPct     = peerData?.adv_pct.dept ?? null;
-
   // Flow trend chart data
   const flowTrend = useMemo(() => {
     if (!data) return [];
@@ -870,55 +825,47 @@ export default function DeptSnapshot() {
     if (!data) return [];
     const psHiring  = latestVal(data.kpis.total_inflow.ps);
     const psLeaving = latestVal(data.kpis.separations.ps);
-    const hasPeerData = sizeTier != null;
     return [
       {
         label: 'Hiring (latest year)',
         dept: fmt(hiringVal),
-        peer: hasPeerData ? fmt(peerHiringVal) : undefined,
         ps:   fmt(psHiring),
         deptNum: hiringVal, psNum: psHiring, higherIsBetter: true,
       },
       {
         label: 'Departures (latest year)',
         dept: fmt(leavingVal),
-        peer: hasPeerData ? fmt(peerLeavingVal) : undefined,
         ps:   fmt(psLeaving),
         deptNum: leavingVal, psNum: psLeaving, higherIsBetter: false,
       },
       {
         label: 'Hiring YoY',
         dept: fmtPct(hiringYoy),
-        peer: hasPeerData ? fmtPct(peerHiringYoy) : undefined,
         ps:   fmtPct(hiringYoyPs),
         deptNum: hiringYoy, psNum: hiringYoyPs, higherIsBetter: true,
       },
       {
         label: 'Departures YoY',
         dept: fmtPct(leavingYoy),
-        peer: hasPeerData ? fmtPct(peerLeavingYoy) : undefined,
         ps:   fmtPct(leavingYoyPs),
         deptNum: leavingYoy, psNum: leavingYoyPs, higherIsBetter: false,
       },
       {
         label: 'Internal movement rate',
         tooltip: 'Acting, promotions, and lateral/downward moves as a percentage of total appointments',
-        dept: mobilityPct    != null ? `${mobilityPct.toFixed(0)}%`    : '—',
-        peer: hasPeerData ? (peerMobilityPct != null ? `${peerMobilityPct.toFixed(0)}%` : '—') : undefined,
-        ps:   mobilityPctPs  != null ? `${mobilityPctPs.toFixed(0)}%`  : '—',
+        dept: mobilityPct   != null ? `${mobilityPct.toFixed(0)}%`   : '—',
+        ps:   mobilityPctPs != null ? `${mobilityPctPs.toFixed(0)}%` : '—',
       },
       {
         label: 'Advertised appointment %',
         tooltip: 'Percentage of indeterminate appointments made through an advertised competitive process',
         dept: data.adv_pct.dept != null ? `${data.adv_pct.dept.toFixed(0)}%` : '—',
-        peer: hasPeerData ? (peerAdvPct != null ? `${peerAdvPct.toFixed(0)}%` : '—') : undefined,
         ps:   data.adv_pct.ps  != null ? `${data.adv_pct.ps.toFixed(0)}%`   : '—',
         deptNum: data.adv_pct.dept, psNum: data.adv_pct.ps, higherIsBetter: undefined,
       },
     ];
-  }, [data, sizeTier, hiringVal, leavingVal, hiringYoy, leavingYoy, hiringYoyPs, leavingYoyPs,
-      mobilityPct, mobilityPctPs, peerMobilityPct,
-      peerHiringVal, peerLeavingVal, peerHiringYoy, peerLeavingYoy, peerAdvPct]);
+  }, [data, hiringVal, leavingVal, hiringYoy, leavingYoy, hiringYoyPs, leavingYoyPs,
+      mobilityPct, mobilityPctPs]);
 
   const latestFy  = data?.kpis.total_inflow.dept?.[0]?.fiscal_year;
   const displayName = selectedDept ?? 'All Public Service';
@@ -958,11 +905,6 @@ export default function DeptSnapshot() {
               {latestFy && (
                 <span style={{ fontSize: 11.5, color: '#9ca3af' }}>
                   · {latestFy}{qCount < 4 ? ` FYTD Q${qCount}` : ''}
-                </span>
-              )}
-              {sizeTier && !isPsTotal && (
-                <span style={{ fontSize: 11, color: '#6b7280', background: '#f1f5f9', borderRadius: 4, padding: '2px 7px' }}>
-                  {sizeTierLabel(sizeTier)} org
                 </span>
               )}
             </div>
@@ -1034,9 +976,6 @@ export default function DeptSnapshot() {
                 {!isPsTotal && mobilityPctPs != null && (
                   <KpiRow label="PS average" value={`${mobilityPctPs.toFixed(0)}%`} color="#9ca3af" />
                 )}
-                {peerMobilityPct != null && (
-                  <KpiRow label={`${sizeTierLabel(sizeTier!)} org avg`} value={`${peerMobilityPct.toFixed(0)}%`} color="#9ca3af" />
-                )}
               </div>
             </div>
           </div>
@@ -1070,14 +1009,9 @@ export default function DeptSnapshot() {
             <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 12 }}>
               How does this compare?
             </div>
-            <ComparisonTable
-              rows={compRows}
-              deptName={displayName}
-              peerLabel={sizeTier ? `${sizeTierLabel(sizeTier)} avg` : undefined}
-            />
+            <ComparisonTable rows={compRows} deptName={displayName} />
             <p style={{ fontSize: 11, color: '#9ca3af', margin: '10px 0 0' }}>
               YoY comparisons are FYTD-normalized when current year is partial.
-              {sizeTier && ` Peer avg = ${sizeTier} from PSC open data.`}
             </p>
           </div>
 
