@@ -766,11 +766,15 @@ export default function DeptSnapshot() {
   });
 
   const { data: peerBenchmark } = useQuery<PeerBenchmark | null>({
-    queryKey: ['dept-peer-benchmark', selectedDept],
+    queryKey: ['dept-peer-benchmark', selectedDept, data?.tbs_headcount?.count],
     queryFn: () =>
-      client.get('/staffing/peer-benchmark', { params: { department: selectedDept! } })
-        .then(r => r.data),
-    enabled: !isPsTotal && !!selectedDept,
+      client.get('/staffing/peer-benchmark', {
+        params: {
+          department: selectedDept!,
+          ...(data?.tbs_headcount?.count != null ? { headcount: data.tbs_headcount!.count } : {}),
+        },
+      }).then(r => r.data),
+    enabled: !isPsTotal && !!selectedDept && !!data,
     staleTime: 5 * 60_000,
   });
 

@@ -705,27 +705,33 @@ async def get_department_overview(department: str | None = None) -> dict:
 
 
 @router.get("/peer-benchmark")
-async def get_peer_benchmark(department: str) -> dict | None:
+async def get_peer_benchmark(
+    department: str,
+    headcount: int | None = None,
+) -> dict | None:
     """Averaged comparison metrics for departments in the same TBS size tier.
 
-    Determines the size tier from tbs_pop_dept headcount, finds peer
-    departments (same tier, present in dash_inflow), and returns per-metric
-    averages across those peers for the comparison table peer column.
-    Returns None if TBS headcount is unavailable for the department.
+    Accepts an optional *headcount* (from the frontend's already-loaded TBS
+    data) to avoid a TBS name-lookup that fails when PSC and TBS use different
+    department name strings (e.g. RCMP).  Falls back to a TBS lookup when
+    headcount is not supplied.
+    Returns None if headcount cannot be determined.
     """
     def q(sql: str, params=None) -> list[dict]:
         return query_to_records(sql, params or None)
 
-    # 1. Get department's TBS headcount (latest year)
-    hc_rows = q(
-        "SELECT count FROM tbs_pop_dept WHERE dept_e = ? "
-        "AND year = (SELECT MAX(year) FROM tbs_pop_dept WHERE dept_e = ?)",
-        [department, department],
-    )
-    if not hc_rows or hc_rows[0]["count"] is None:
-        return None
-
-    hc = hc_rows[0]["count"]
+    # 1. Resolve headcount — prefer caller-supplied value to avoid name mismatch
+    if headcount is not None:
+        hc = headcount
+    else:
+        hc_rows = q(
+            "SELECT count FROM tbs_pop_dept WHERE dept_e = ? "
+            "AND year = (SELECT MAX(year) FROM tbs_pop_dept WHERE dept_e = ?)",
+            [department, department],
+        )
+        if not hc_rows or hc_rows[0]["count"] is None:
+            return None
+        hc = hc_rows[0]["count"]
 
     # 2. Size tier thresholds (match frontend)
     if hc < 100:
