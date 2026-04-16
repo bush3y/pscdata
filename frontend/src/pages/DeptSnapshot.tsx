@@ -581,8 +581,7 @@ function EERepresentationModule({ ee_snapshot, isPsTotal }: {
 
 // ── Module 3: Internal mobility detail ──────────────────────────────────────
 
-const INTERNAL_HIRE_TYPES = new Set([
-  'Term to Indeterminate',
+const CROSS_ORG_HIRE_TYPES = new Set([
   'Indeterminate from other organization',
   'Term from other organization',
 ]);
@@ -608,7 +607,7 @@ function MobilityDetailModule({ mobility_trend, inflow_by_type }: {
         .reduce((s, r) => s + (r.count ?? 0), 0);
 
       const internalTransfers = inflow_by_type
-        .filter(r => r.fiscal_year === fy && INTERNAL_HIRE_TYPES.has(r.hire_e))
+        .filter(r => r.fiscal_year === fy && CROSS_ORG_HIRE_TYPES.has(r.hire_e))
         .reduce((s, r) => s + (r.count ?? 0), 0);
 
       const breakdown = Object.entries(MOB_TYPE_LABEL).map(([key, label]) => {
@@ -644,7 +643,7 @@ function MobilityDetailModule({ mobility_trend, inflow_by_type }: {
       <div style={{ marginBottom: 14 }}>
         <KpiRow label="Total mobility actions" value={latest.mobTotal.toLocaleString()} />
         {latest.internalPct != null && (
-          <KpiRow label="Cross-org transfers" value={`${latest.internalPct.toFixed(0)}% of hiring`} color="#6b7280" />
+          <KpiRow label="From other departments" value={`${latest.internalPct.toFixed(0)}% of hiring`} color="#6b7280" />
         )}
         {mobYoy != null && (
           <KpiRow
@@ -681,7 +680,7 @@ function MobilityDetailModule({ mobility_trend, inflow_by_type }: {
             <th style={{ textAlign: 'left', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Year</th>
             <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Actions</th>
             <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Mobility rate</th>
-            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Cross-org transfers</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>From other depts</th>
           </tr>
         </thead>
         <tbody>
