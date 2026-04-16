@@ -129,7 +129,7 @@ Most `dash_*` staffing tables have a `quarter` column (`dash_demo_fol` is the ex
 | Route | Page | Description |
 |---|---|---|
 | `/` | Staffing Dashboard | Home page — KPI summary cards + 6-tab dashboard |
-| `/department` | Department Overview | Executive summary for a specific dept or PS Total — KPIs, charts, TBS headcount |
+| `/snapshot` | Department Snapshot | Executive summary for a specific dept or PS Total — headline, KPI cards, chart, composition, comparison table, PSC oversight indicators |
 | `/query` | Data Explorer | Standard column picker + Advanced SQL mode for raw advertisements and all tables |
 | `/process` | Process Lookup | Search by selection process # or reference #; shows process detail card |
 | `/admin` | Data Ingestion | Trigger ingestion, view log history — not linked in nav, access directly by URL |
@@ -258,16 +258,20 @@ Results table shows friendly column labels (e.g. "Fiscal Year", not "fiscal_year
 - CSV export is client-side from the full in-memory result set
 - Visualize not available in advanced mode (schema is unknown)
 
-## Department Overview Page (`/department`)
-Executive summary for a specific department or PS Total. Department selector with autocomplete dropdown.
+## Department Snapshot Page (`/snapshot`)
+Executive summary for a specific department or PS Total. Department selector with autocomplete. `DepartmentOverview.tsx` (old page) still exists as a file but is no longer routed — `DeptSnapshot.tsx` is the active page.
 
-- **KPI cards**: New Indeterminate, Separations, Net Flow, Promotions, Acting, Lateral/Downward, Applications, Advertisements, Headcount (TBS)
-  - All staffing KPIs use `q_count`-normalized FYTD comparison (current FYTD vs `prior_year × q_count/4`) to avoid misleading YoY drops
-  - Rate per 1,000 employees shown when TBS headcount is available
-  - Rank among all departments shown with tercile colour coding (green/grey/red) for non-PS-Total views
-  - `q_count` is returned by `GET /staffing/department-overview` and used to label comparison as "~est. prior period" when partial year
-- **Charts**: Workforce Flow (inflow vs outflow line), Inflow by Hire Type (stacked bar), Separations by Reason (stacked bar), Internal Mobility (line), Tenure Mix TBS (stacked bar), EE snapshot (bar), Age snapshot (bar), Recruitment trend (ads + applications line)
-- **TBS data**: headcount and tenure from `tbs_pop_dept` / `tbs_pop_tenure`; shown even if TBS dept name doesn't match PSC name exactly (note displayed)
+- **Headline block**: opinionated `getHeadline()` sentence (base + modifier pattern), status badge (Net inflow / Net outflow / Departures rising / Stable), FYTD period label, size tier badge, supporting context sentence, italic partial-year note when `q_count < 4`
+- **4 KPI cards**: Hiring (highlighted), Departures, Net Change (`NetCard` with colour-coded background), Internal Movement (% rate with tooltip icon)
+  - All YoY comparisons are FYTD-normalized via `qCount`; "This year" and "PS average" labeled rows
+- **Chart**: "Hiring vs departures over time" line chart (all available years); source caveat note below
+- **Hiring composition**: stacked bar breakdown of latest year inflow by hire type
+- **Comparison table**: 6 rows — Hiring, Departures, Hiring YoY, Departures YoY, Internal movement rate (tooltip), Advertised appointment % (tooltip); peer column from size-tier benchmark query
+- **PSC oversight indicators** divider (italic subtitle: "Appointment integrity & employment equity"), then:
+  - **Advertised appointment rate** module (`HiringPipelineModule`): big %, progress bar, labeled rows, 3-yr table
+  - **Internal movement rate** module (`MobilityDetailModule`): big %, progress bar, labeled rows, 3-yr table with cross-org transfers
+  - **Employment equity in hiring** card (`EERepresentationModule`): 30px dept rate + PS avg (border-left separator), comparison bars (dept vs PS), amber insight callout with narrative text; prior years top-right; ~1 year data lag note
+- Data source: `GET /staffing/department-overview` (bundled endpoint); EE from `ee_snapshot` (3 years, binary self-identification only)
 
 ## Design Notes
 - Global font: `-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif` set on AppShell main area
@@ -276,10 +280,10 @@ Executive summary for a specific department or PS Total. Department selector wit
 - Colour palette: primary `#1d3557`, text `#111827`, muted `#6b7280`, border `#e5e7eb`
 
 ## What's Next (not started)
-- Bilingual support is wired (i18n) but translations are minimal
+- Bilingual support is wired (i18n) but translations are minimal; FR nav labels need updating to reflect removed Department Overview and renamed Department Snapshot
 - No production deployment yet (Digital Ocean droplet)
 - Staffing Dashboard department filter is text-only (no autocomplete)
 - FSWEP application counts in `dash_advertisements` will self-correct once PSC republishes the source CSV
 - Consider snapshotting quarterly ingest data (append instead of truncate per quarter) to enable true same-period year-over-year comparisons in future
 - EE applicant breakdown columns (`women_submitted_sup`, `vismin_submitted_sup`, `indigenous_submitted_sup`, `pwd_submitted_sup`, `french_submitted_sup`, `english_submitted_sup`) exist in the CSV but are not yet ingested — useful for diversity analytics per process
-- TBS population data needs re-ingest from `/admin` after schema was added to populate `tbs_pop_dept` and `tbs_pop_tenure`
+- `DepartmentOverview.tsx` is unused (route removed) — can be deleted when confirmed no longer needed
