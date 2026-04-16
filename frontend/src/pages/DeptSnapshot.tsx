@@ -122,6 +122,23 @@ function getHeadline(p: HeadlineParams): string {
   return modifier ? `${base}, ${modifier}.` : `${base}.`;
 }
 
+// ── Tooltip icon ────────────────────────────────────────────────────────────
+
+function TooltipIcon({ text }: { text: string }) {
+  return (
+    <span
+      title={text}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 14, height: 14, borderRadius: '50%',
+        border: '1px solid #d1d5db', color: '#9ca3af',
+        fontSize: 9, fontWeight: 700, cursor: 'help',
+        marginLeft: 4, flexShrink: 0, verticalAlign: 'middle',
+      }}
+    >i</span>
+  );
+}
+
 // ── KPI card ────────────────────────────────────────────────────────────────
 
 function KpiRow({ label, value, color }: { label: string; value: string; color?: string }) {
@@ -291,6 +308,7 @@ function HiringComposition({ inflow_by_type }: { inflow_by_type: { fiscal_year: 
 
 interface CompRow {
   label: string;
+  tooltip?: string;
   dept: string;
   peer?: string;
   ps: string;
@@ -332,7 +350,12 @@ function ComparisonTable({ rows, deptName, peerLabel }: {
         <tbody>
           {rows.map((row, i) => (
             <tr key={row.label} style={{ background: i % 2 === 1 ? '#f9fafb' : '#fff', borderBottom: '1px solid #f3f4f6' }}>
-              <td style={{ padding: '9px 12px', color: '#374151' }}>{row.label}</td>
+              <td style={{ padding: '9px 12px', color: '#374151' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  {row.label}
+                  {row.tooltip && <TooltipIcon text={row.tooltip} />}
+                </span>
+              </td>
               <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600, color: cellColor(row.deptNum, row.psNum, row.higherIsBetter) }}>
                 {row.dept}
               </td>
@@ -389,10 +412,13 @@ function HiringPipelineModule({ adv_by_type, isPsTotal, advPctPs }: {
   const advYoy = latest.pct != null && prior?.pct != null ? latest.pct - prior.pct : null;
 
   return (
-    <ModuleCard title="Hiring Activity Pipeline" subtitle="Are appointments being filled through open, advertised competition?">
-      <div style={{ fontSize: 28, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12 }}>
+    <ModuleCard title="Advertised appointment rate" subtitle="Share of appointments made through an open, advertised competitive process">
+      <div style={{ fontSize: 28, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 8 }}>
         {latest.pct != null ? `${latest.pct.toFixed(0)}%` : '—'}
         <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>advertised · {latest.fy}</span>
+      </div>
+      <div style={{ height: 6, background: '#f3f4f6', borderRadius: 99, marginBottom: 14 }}>
+        <div style={{ height: 6, width: `${Math.min(latest.pct ?? 0, 100)}%`, background: '#1d3557', borderRadius: 99, transition: 'width 0.4s' }} />
       </div>
       <div style={{ marginBottom: 14 }}>
         <KpiRow label="Advertised appointments" value={latest.advertised.toLocaleString()} />
@@ -462,48 +488,96 @@ function EERepresentationModule({ ee_snapshot, isPsTotal }: {
   const prior  = years[1];
   const yoy = latest.rate != null && prior?.rate != null ? latest.rate - prior.rate : null;
 
+  const gap = latest.rate != null && latest.ratePs != null ? latest.rate - latest.ratePs : null;
+  const insightText = (() => {
+    if (isPsTotal || gap == null) return null;
+    const dir = gap > 1 ? 'above' : gap < -1 ? 'below' : 'in line with';
+    const trend = yoy == null ? '' : yoy > 0.5 ? ' trending upward' : yoy < -0.5 ? ' trending downward' : ' holding steady';
+    return `EE self-identification in this department is ${dir} the PS average (${latest.rate?.toFixed(1)}% vs ${latest.ratePs?.toFixed(1)}%)${trend}.`;
+  })();
+
   return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '16px 20px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '20px 24px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 0 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Employment Equity in Hiring</div>
-          <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 2 }}>Share of new hires who self-identified as belonging to an EE group · ~1 year data lag</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Employment equity in hiring</div>
+          <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 2 }}>Share of new hires who self-identified as EE · ~1 year data lag</div>
         </div>
-        <div style={{ display: 'flex', gap: 28, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1 }}>
-              {latest.rate != null ? `${latest.rate.toFixed(1)}%` : '—'}
-            </div>
-            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>{latest.fy}</div>
-          </div>
-          {yoy != null && (
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: Math.abs(yoy) < 0.5 ? '#9ca3af' : yoy > 0 ? '#15803d' : '#dc2626' }}>
-                {yoy > 0 ? '↑' : yoy < 0 ? '↓' : '→'} {Math.abs(yoy).toFixed(1)} pts
+        {/* Prior years */}
+        {(years[1]?.rate != null || years[2]?.rate != null) && (
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+            {years[2]?.rate != null && (
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 13, color: '#9ca3af' }}>{years[2].rate.toFixed(1)}%</div>
+                <div style={{ fontSize: 10, color: '#d1d5db' }}>{years[2].fy}</div>
               </div>
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>vs prior year</div>
-            </div>
-          )}
-          {!isPsTotal && latest.ratePs != null && (
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#9ca3af' }}>{latest.ratePs.toFixed(1)}%</div>
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>PS average</div>
-            </div>
-          )}
-          {years[1]?.rate != null && (
-            <div>
-              <div style={{ fontSize: 13, color: '#6b7280' }}>{years[1].rate.toFixed(1)}%</div>
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>{years[1].fy}</div>
-            </div>
-          )}
-          {years[2]?.rate != null && (
-            <div>
-              <div style={{ fontSize: 13, color: '#6b7280' }}>{years[2].rate.toFixed(1)}%</div>
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3 }}>{years[2].fy}</div>
+            )}
+            {years[1]?.rate != null && (
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 13, color: '#6b7280' }}>{years[1].rate.toFixed(1)}%</div>
+                <div style={{ fontSize: 10, color: '#9ca3af' }}>{years[1].fy}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Main stats row */}
+      <div style={{ display: 'flex', alignItems: 'stretch', gap: 0, marginBottom: 20 }}>
+        {/* Dept rate */}
+        <div style={{ paddingRight: 20 }}>
+          <div style={{ fontSize: 30, fontWeight: 700, color: '#111827', lineHeight: 1 }}>
+            {latest.rate != null ? `${latest.rate.toFixed(1)}%` : '—'}
+          </div>
+          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>{latest.fy}</div>
+          {yoy != null && (
+            <div style={{ fontSize: 12, fontWeight: 600, color: Math.abs(yoy) < 0.5 ? '#9ca3af' : yoy > 0 ? '#15803d' : '#dc2626', marginTop: 4 }}>
+              {yoy > 0 ? '↑' : yoy < 0 ? '↓' : '→'} {Math.abs(yoy).toFixed(1)} pts vs prior year
             </div>
           )}
         </div>
+        {/* PS average — separated by border-left */}
+        {!isPsTotal && latest.ratePs != null && (
+          <div style={{ paddingLeft: 20, borderLeft: '1px solid #e5e7eb' }}>
+            <div style={{ fontSize: 22, fontWeight: 600, color: '#6b7280', lineHeight: 1 }}>
+              {latest.ratePs.toFixed(1)}%
+            </div>
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>PS average</div>
+          </div>
+        )}
       </div>
+
+      {/* Comparison bars — dept vs PS */}
+      {!isPsTotal && latest.ratePs != null && latest.rate != null && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+              <span style={{ fontSize: 11, color: '#374151' }}>This department</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>{latest.rate.toFixed(1)}%</span>
+            </div>
+            <div style={{ height: 8, background: '#f3f4f6', borderRadius: 99 }}>
+              <div style={{ height: 8, width: `${Math.min(latest.rate, 100)}%`, background: '#1d3557', borderRadius: 99 }} />
+            </div>
+          </div>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+              <span style={{ fontSize: 11, color: '#9ca3af' }}>PS average</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af' }}>{latest.ratePs.toFixed(1)}%</span>
+            </div>
+            <div style={{ height: 8, background: '#f3f4f6', borderRadius: 99 }}>
+              <div style={{ height: 8, width: `${Math.min(latest.ratePs, 100)}%`, background: '#9ca3af', borderRadius: 99 }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Amber insight callout */}
+      {insightText && (
+        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '10px 14px', fontSize: 12, color: '#92400e', lineHeight: 1.5 }}>
+          {insightText}
+        </div>
+      )}
     </div>
   );
 }
@@ -551,10 +625,13 @@ function MobilityDetailModule({ mobility_trend, inflow_by_type }: {
   const mobYoy = latest.mobRate != null && prior?.mobRate != null ? latest.mobRate - prior.mobRate : null;
 
   return (
-    <ModuleCard title="Internal Staffing Movement" subtitle="Acting, promotions, and lateral moves as a share of total hiring">
-      <div style={{ fontSize: 24, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12 }}>
+    <ModuleCard title="Internal movement rate" subtitle="Acting, promotions, and lateral moves as a share of total appointments">
+      <div style={{ fontSize: 24, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 8 }}>
         {latest.mobRate != null ? `${latest.mobRate.toFixed(0)}%` : '—'}
         <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>mobility rate · {latest.fy}</span>
+      </div>
+      <div style={{ height: 6, background: '#f3f4f6', borderRadius: 99, marginBottom: 12 }}>
+        <div style={{ height: 6, width: `${Math.min(latest.mobRate ?? 0, 100)}%`, background: '#457b9d', borderRadius: 99, transition: 'width 0.4s' }} />
       </div>
       <div style={{ marginBottom: 14 }}>
         <KpiRow label="Total mobility actions" value={latest.mobTotal.toLocaleString()} />
@@ -784,7 +861,7 @@ export default function DeptSnapshot() {
     data.workforce_trend.inflow.forEach(r => { map[r.fiscal_year] = { fiscal_year: r.fiscal_year, Hiring: r.total }; });
     data.workforce_trend.outflow.forEach(r => {
       if (!map[r.fiscal_year]) map[r.fiscal_year] = { fiscal_year: r.fiscal_year };
-      map[r.fiscal_year].Leaving = r.total;
+      map[r.fiscal_year].Departures = r.total;
     });
     return Object.values(map).sort((a, b) => String(a.fiscal_year).localeCompare(String(b.fiscal_year)));
   }, [data]);
@@ -823,13 +900,15 @@ export default function DeptSnapshot() {
         deptNum: leavingYoy, psNum: leavingYoyPs, higherIsBetter: false,
       },
       {
-        label: 'Mobility rate',
+        label: 'Internal movement rate',
+        tooltip: 'Acting, promotions, and lateral/downward moves as a percentage of total appointments',
         dept: mobilityPct    != null ? `${mobilityPct.toFixed(0)}%`    : '—',
         peer: peerMobilityPct != null ? `${peerMobilityPct.toFixed(0)}%` : '—',
         ps:   mobilityPctPs  != null ? `${mobilityPctPs.toFixed(0)}%`  : '—',
       },
       {
-        label: 'Advertised %',
+        label: 'Advertised appointment %',
+        tooltip: 'Percentage of indeterminate appointments made through an advertised competitive process',
         dept: data.adv_pct.dept != null ? `${data.adv_pct.dept.toFixed(0)}%` : '—',
         peer: peerAdvPct        != null ? `${peerAdvPct.toFixed(0)}%`        : '—',
         ps:   data.adv_pct.ps  != null ? `${data.adv_pct.ps.toFixed(0)}%`   : '—',
@@ -908,6 +987,11 @@ export default function DeptSnapshot() {
                 </span>
               )}
             </div>
+            {qCount < 4 && latestFy && (
+              <p style={{ margin: '6px 0 0', fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>
+                Data reflects Q{qCount} year-to-date figures for {latestFy}.
+              </p>
+            )}
           </div>
 
           {/* ── 4 KPI cards ─────────────────────────────────────────────────── */}
@@ -922,9 +1006,9 @@ export default function DeptSnapshot() {
               highlight
             />
 
-            {/* Leaving */}
+            {/* Departures */}
             <KpiCard
-              label="Leaving"
+              label="Departures"
               value={leavingVal}
               yoy={leavingYoy}
               psYoy={!isPsTotal ? leavingYoyPs : undefined}
@@ -935,7 +1019,10 @@ export default function DeptSnapshot() {
 
             {/* Internal Movement */}
             <div style={{ flex: 1, minWidth: 150, background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Internal Movement</div>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10, display: 'flex', alignItems: 'center' }}>
+                Internal Movement
+                <TooltipIcon text="Acting, promotions, and lateral/downward moves as a percentage of total appointments" />
+              </div>
               <div style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12 }}>
                 {mobilityPct != null ? `${mobilityPct.toFixed(0)}%` : mobilityVal != null ? mobilityVal.toLocaleString() : '—'}
               </div>
@@ -953,9 +1040,9 @@ export default function DeptSnapshot() {
             </div>
           </div>
 
-          {/* ── Hiring vs Leaving — single chart ────────────────────────────── */}
+          {/* ── Hiring vs Departures — single chart ─────────────────────────── */}
           <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '20px 24px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 28 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 2 }}>Hiring vs Leaving</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 2 }}>Hiring vs departures over time</div>
             <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>All available years · {displayName}</div>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={flowTrend} margin={{ top: 5, right: 20, left: 10, bottom: 50 }}>
@@ -964,10 +1051,13 @@ export default function DeptSnapshot() {
                 <YAxis tick={{ fontSize: 11 }} width={48} />
                 <Tooltip />
                 <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 11 }} />
-                <Line type="monotone" dataKey="Hiring"  stroke="#1d3557" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                <Line type="monotone" dataKey="Leaving" stroke="#e63946" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                <Line type="monotone" dataKey="Hiring"     stroke="#1d3557" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                <Line type="monotone" dataKey="Departures" stroke="#e63946" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
               </LineChart>
             </ResponsiveContainer>
+            <p style={{ margin: '10px 0 0', fontSize: 11, color: '#9ca3af' }}>
+              Source: PSC Staffing and Non-Partisanship Survey Dashboard. Counts reflect inflow and outflow as reported by departments.
+            </p>
           </div>
 
           {/* ── Hiring composition ────────────────────────────────────────── */}
@@ -993,10 +1083,11 @@ export default function DeptSnapshot() {
             </p>
           </div>
 
-          {/* ── Staffing context ──────────────────────────────────────────── */}
+          {/* ── PSC oversight indicators ──────────────────────────────────── */}
           <div style={{ margin: '32px 0 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Staffing context</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>PSC oversight indicators</span>
             <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
+            <span style={{ fontSize: 11, color: '#9ca3af', fontStyle: 'italic', whiteSpace: 'nowrap' }}>Appointment integrity &amp; employment equity</span>
           </div>
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -1009,9 +1100,7 @@ export default function DeptSnapshot() {
           </div>
 
           {data.ee_snapshot?.dept?.length > 0 && (
-            <div style={{ marginBottom: 28 }}>
-              <EERepresentationModule ee_snapshot={data.ee_snapshot} isPsTotal={isPsTotal} />
-            </div>
+            <EERepresentationModule ee_snapshot={data.ee_snapshot} isPsTotal={isPsTotal} />
           )}
         </>
       )}

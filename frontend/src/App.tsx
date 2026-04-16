@@ -4,7 +4,6 @@ import QueryTable from './pages/QueryTable';
 import AdminIngestion from './pages/AdminIngestion';
 import StaffingDashboard from './pages/StaffingDashboard';
 import ProcessDetail from './pages/ProcessDetail';
-import DepartmentOverview from './pages/DepartmentOverview';
 import DeptSnapshot from './pages/DeptSnapshot';
 
 export default function App() {
@@ -13,7 +12,6 @@ export default function App() {
       <Route path="/" element={<AppShell />}>
         <Route index element={<StaffingDashboard />} />
         <Route path="snapshot" element={<DeptSnapshot />} />
-        <Route path="department" element={<DepartmentOverview />} />
         <Route path="query" element={<QueryTable />} />
         <Route path="process" element={<ProcessDetail />} />
         <Route path="admin" element={<AdminIngestion />} />

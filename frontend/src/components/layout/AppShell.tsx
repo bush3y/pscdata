@@ -6,7 +6,6 @@ import LanguageToggle from './LanguageToggle';
 const NAV_LINKS = [
   { to: '/', key: 'nav.staffing', end: true },
   { to: '/snapshot', key: 'nav.snapshot' },
-  { to: '/department', key: 'nav.department' },
   { to: '/query', key: 'nav.query' },
   { to: '/process', key: 'nav.process' },
 ];
