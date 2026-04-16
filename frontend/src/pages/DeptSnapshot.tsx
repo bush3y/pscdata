@@ -13,6 +13,17 @@ interface KpiGroup  { dept: KpiSeries[]; ps: KpiSeries[] }
 
 interface EeRow { ee_group_e: string; fiscal_year: string; count: number | null }
 
+interface PeerBenchmark {
+  peer_label: string;
+  peer_count: number;
+  hiring: number | null;
+  hiring_yoy: number | null;
+  separations: number | null;
+  separations_yoy: number | null;
+  mobility_rate: number | null;
+  adv_pct: number | null;
+}
+
 interface SnapshotData {
   department: string;
   is_ps_total: boolean;
@@ -754,6 +765,15 @@ export default function DeptSnapshot() {
     staleTime: 60_000,
   });
 
+  const { data: peerBenchmark } = useQuery<PeerBenchmark | null>({
+    queryKey: ['dept-peer-benchmark', selectedDept],
+    queryFn: () =>
+      client.get('/staffing/peer-benchmark', { params: { department: selectedDept! } })
+        .then(r => r.data),
+    enabled: !isPsTotal && !!selectedDept,
+    staleTime: 5 * 60_000,
+  });
+
   // ── Computed values ──────────────────────────────────────────────────────
 
   const qCount = data?.q_count ?? 4;
@@ -825,47 +845,54 @@ export default function DeptSnapshot() {
     if (!data) return [];
     const psHiring  = latestVal(data.kpis.total_inflow.ps);
     const psLeaving = latestVal(data.kpis.separations.ps);
+    const pb = isPsTotal ? null : peerBenchmark ?? null;
     return [
       {
         label: 'Hiring (latest year)',
         dept: fmt(hiringVal),
+        peer: pb ? fmt(pb.hiring) : undefined,
         ps:   fmt(psHiring),
         deptNum: hiringVal, psNum: psHiring, higherIsBetter: true,
       },
       {
         label: 'Departures (latest year)',
         dept: fmt(leavingVal),
+        peer: pb ? fmt(pb.separations) : undefined,
         ps:   fmt(psLeaving),
         deptNum: leavingVal, psNum: psLeaving, higherIsBetter: false,
       },
       {
         label: 'Hiring YoY',
         dept: fmtPct(hiringYoy),
+        peer: pb ? fmtPct(pb.hiring_yoy) : undefined,
         ps:   fmtPct(hiringYoyPs),
         deptNum: hiringYoy, psNum: hiringYoyPs, higherIsBetter: true,
       },
       {
         label: 'Departures YoY',
         dept: fmtPct(leavingYoy),
+        peer: pb ? fmtPct(pb.separations_yoy) : undefined,
         ps:   fmtPct(leavingYoyPs),
         deptNum: leavingYoy, psNum: leavingYoyPs, higherIsBetter: false,
       },
       {
         label: 'Internal movement rate',
         tooltip: 'Acting, promotions, and lateral/downward moves as a percentage of total appointments',
-        dept: mobilityPct   != null ? `${mobilityPct.toFixed(0)}%`   : '—',
-        ps:   mobilityPctPs != null ? `${mobilityPctPs.toFixed(0)}%` : '—',
+        dept: mobilityPct   != null ? `${mobilityPct.toFixed(0)}%`           : '—',
+        peer: pb ? (pb.mobility_rate != null ? `${pb.mobility_rate.toFixed(0)}%` : '—') : undefined,
+        ps:   mobilityPctPs != null ? `${mobilityPctPs.toFixed(0)}%`         : '—',
       },
       {
         label: 'Advertised appointment %',
         tooltip: 'Percentage of indeterminate appointments made through an advertised competitive process',
         dept: data.adv_pct.dept != null ? `${data.adv_pct.dept.toFixed(0)}%` : '—',
+        peer: pb ? (pb.adv_pct != null ? `${pb.adv_pct.toFixed(0)}%` : '—') : undefined,
         ps:   data.adv_pct.ps  != null ? `${data.adv_pct.ps.toFixed(0)}%`   : '—',
         deptNum: data.adv_pct.dept, psNum: data.adv_pct.ps, higherIsBetter: undefined,
       },
     ];
-  }, [data, hiringVal, leavingVal, hiringYoy, leavingYoy, hiringYoyPs, leavingYoyPs,
-      mobilityPct, mobilityPctPs]);
+  }, [data, isPsTotal, peerBenchmark, hiringVal, leavingVal, hiringYoy, leavingYoy,
+      hiringYoyPs, leavingYoyPs, mobilityPct, mobilityPctPs]);
 
   const latestFy  = data?.kpis.total_inflow.dept?.[0]?.fiscal_year;
   const displayName = selectedDept ?? 'All Public Service';
@@ -905,6 +932,11 @@ export default function DeptSnapshot() {
               {latestFy && (
                 <span style={{ fontSize: 11.5, color: '#9ca3af' }}>
                   · {latestFy}{qCount < 4 ? ` FYTD Q${qCount}` : ''}
+                </span>
+              )}
+              {peerBenchmark && !isPsTotal && (
+                <span style={{ fontSize: 11, color: '#6b7280', background: '#f1f5f9', borderRadius: 4, padding: '2px 7px' }}>
+                  {peerBenchmark.peer_label} · {peerBenchmark.peer_count} depts
                 </span>
               )}
             </div>
@@ -1009,9 +1041,14 @@ export default function DeptSnapshot() {
             <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 12 }}>
               How does this compare?
             </div>
-            <ComparisonTable rows={compRows} deptName={displayName} />
+            <ComparisonTable
+              rows={compRows}
+              deptName={displayName}
+              peerLabel={peerBenchmark?.peer_label}
+            />
             <p style={{ fontSize: 11, color: '#9ca3af', margin: '10px 0 0' }}>
               YoY comparisons are FYTD-normalized when current year is partial.
+              {peerBenchmark && ` Peer avg across ${peerBenchmark.peer_count} ${peerBenchmark.peer_label.replace(' avg', '')} departments.`}
             </p>
           </div>
 
