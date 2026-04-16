@@ -870,32 +870,33 @@ export default function DeptSnapshot() {
     if (!data) return [];
     const psHiring  = latestVal(data.kpis.total_inflow.ps);
     const psLeaving = latestVal(data.kpis.separations.ps);
+    const hasPeerData = sizeTier != null;
     return [
       {
         label: 'Hiring (latest year)',
         dept: fmt(hiringVal),
-        peer: fmt(peerHiringVal),
+        peer: hasPeerData ? fmt(peerHiringVal) : undefined,
         ps:   fmt(psHiring),
         deptNum: hiringVal, psNum: psHiring, higherIsBetter: true,
       },
       {
         label: 'Departures (latest year)',
         dept: fmt(leavingVal),
-        peer: fmt(peerLeavingVal),
+        peer: hasPeerData ? fmt(peerLeavingVal) : undefined,
         ps:   fmt(psLeaving),
         deptNum: leavingVal, psNum: psLeaving, higherIsBetter: false,
       },
       {
         label: 'Hiring YoY',
         dept: fmtPct(hiringYoy),
-        peer: fmtPct(peerHiringYoy),
+        peer: hasPeerData ? fmtPct(peerHiringYoy) : undefined,
         ps:   fmtPct(hiringYoyPs),
         deptNum: hiringYoy, psNum: hiringYoyPs, higherIsBetter: true,
       },
       {
         label: 'Departures YoY',
         dept: fmtPct(leavingYoy),
-        peer: fmtPct(peerLeavingYoy),
+        peer: hasPeerData ? fmtPct(peerLeavingYoy) : undefined,
         ps:   fmtPct(leavingYoyPs),
         deptNum: leavingYoy, psNum: leavingYoyPs, higherIsBetter: false,
       },
@@ -903,19 +904,19 @@ export default function DeptSnapshot() {
         label: 'Internal movement rate',
         tooltip: 'Acting, promotions, and lateral/downward moves as a percentage of total appointments',
         dept: mobilityPct    != null ? `${mobilityPct.toFixed(0)}%`    : '—',
-        peer: peerMobilityPct != null ? `${peerMobilityPct.toFixed(0)}%` : '—',
+        peer: hasPeerData ? (peerMobilityPct != null ? `${peerMobilityPct.toFixed(0)}%` : '—') : undefined,
         ps:   mobilityPctPs  != null ? `${mobilityPctPs.toFixed(0)}%`  : '—',
       },
       {
         label: 'Advertised appointment %',
         tooltip: 'Percentage of indeterminate appointments made through an advertised competitive process',
         dept: data.adv_pct.dept != null ? `${data.adv_pct.dept.toFixed(0)}%` : '—',
-        peer: peerAdvPct        != null ? `${peerAdvPct.toFixed(0)}%`        : '—',
+        peer: hasPeerData ? (peerAdvPct != null ? `${peerAdvPct.toFixed(0)}%` : '—') : undefined,
         ps:   data.adv_pct.ps  != null ? `${data.adv_pct.ps.toFixed(0)}%`   : '—',
         deptNum: data.adv_pct.dept, psNum: data.adv_pct.ps, higherIsBetter: undefined,
       },
     ];
-  }, [data, hiringVal, leavingVal, hiringYoy, leavingYoy, hiringYoyPs, leavingYoyPs,
+  }, [data, sizeTier, hiringVal, leavingVal, hiringYoy, leavingYoy, hiringYoyPs, leavingYoyPs,
       mobilityPct, mobilityPctPs, peerMobilityPct,
       peerHiringVal, peerLeavingVal, peerHiringYoy, peerLeavingYoy, peerAdvPct]);
 
@@ -1055,9 +1056,6 @@ export default function DeptSnapshot() {
                 <Line type="monotone" dataKey="Departures" stroke="#e63946" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
               </LineChart>
             </ResponsiveContainer>
-            <p style={{ margin: '10px 0 0', fontSize: 11, color: '#9ca3af' }}>
-              Source: PSC Staffing and Non-Partisanship Survey Dashboard. Counts reflect inflow and outflow as reported by departments.
-            </p>
           </div>
 
           {/* ── Hiring composition ────────────────────────────────────────── */}
