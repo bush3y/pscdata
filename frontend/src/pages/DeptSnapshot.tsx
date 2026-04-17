@@ -991,14 +991,12 @@ export default function DeptSnapshot() {
         dept: fmt(hiringVal),
         peer: pb ? fmt(pb.hiring) : undefined,
         ps:   fmt(psHiring),
-        deptNum: hiringVal, psNum: psHiring, higherIsBetter: true,
       },
       {
         label: 'Departures (latest year)',
         dept: fmt(leavingVal),
         peer: pb ? fmt(pb.separations) : undefined,
         ps:   fmt(psLeaving),
-        deptNum: leavingVal, psNum: psLeaving, higherIsBetter: false,
       },
       {
         label: 'Hiring YoY',
@@ -1181,7 +1179,7 @@ export default function DeptSnapshot() {
           {/* ── Comparison table ──────────────────────────────────────────── */}
           <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '20px 24px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 12 }}>
-              How does this compare?
+              How does {displayName} compare?
             </div>
             <ComparisonTable
               rows={compRows}
