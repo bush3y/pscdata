@@ -336,9 +336,6 @@ interface CompRow {
   dept: string;
   peer?: string;
   ps: string;
-  deptNum?: number | null;
-  psNum?: number | null;
-  higherIsBetter?: boolean;
 }
 
 function ComparisonTable({ rows, deptName, peerLabel }: {
@@ -347,12 +344,6 @@ function ComparisonTable({ rows, deptName, peerLabel }: {
   peerLabel?: string;
 }) {
   const hasPeer = rows.some(r => r.peer !== undefined);
-
-  function cellColor(deptNum: number | null | undefined, psNum: number | null | undefined, higherIsBetter: boolean | undefined): string {
-    if (deptNum == null || psNum == null || higherIsBetter == null) return '#374151';
-    if (higherIsBetter) return deptNum >= psNum ? '#15803d' : '#dc2626';
-    return deptNum <= psNum ? '#15803d' : '#dc2626';
-  }
 
   return (
     <div style={{ overflowX: 'auto' }}>
@@ -380,7 +371,7 @@ function ComparisonTable({ rows, deptName, peerLabel }: {
                   {row.tooltip && <TooltipIcon text={row.tooltip} />}
                 </span>
               </td>
-              <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600, color: cellColor(row.deptNum, row.psNum, row.higherIsBetter) }}>
+              <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600, color: '#111827' }}>
                 {row.dept}
               </td>
               {hasPeer && (
@@ -1003,14 +994,12 @@ export default function DeptSnapshot() {
         dept: fmtPct(hiringYoy),
         peer: pb ? fmtPct(pb.hiring_yoy) : undefined,
         ps:   fmtPct(hiringYoyPs),
-        deptNum: hiringYoy, psNum: hiringYoyPs, higherIsBetter: true,
       },
       {
         label: 'Departures YoY',
         dept: fmtPct(leavingYoy),
         peer: pb ? fmtPct(pb.separations_yoy) : undefined,
         ps:   fmtPct(leavingYoyPs),
-        deptNum: leavingYoy, psNum: leavingYoyPs, higherIsBetter: false,
       },
       {
         label: 'Internal movement rate',
@@ -1025,7 +1014,6 @@ export default function DeptSnapshot() {
         dept: data.adv_pct.dept != null ? `${data.adv_pct.dept.toFixed(0)}%` : '—',
         peer: pb ? (pb.adv_pct != null ? `${pb.adv_pct.toFixed(0)}%` : '—') : undefined,
         ps:   data.adv_pct.ps  != null ? `${data.adv_pct.ps.toFixed(0)}%`   : '—',
-        deptNum: data.adv_pct.dept, psNum: data.adv_pct.ps, higherIsBetter: undefined,
       },
     ];
   }, [data, isPsTotal, peerBenchmark, hiringVal, leavingVal, hiringYoy, leavingYoy,
