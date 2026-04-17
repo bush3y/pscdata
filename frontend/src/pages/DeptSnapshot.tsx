@@ -598,13 +598,11 @@ function EERepresentationModule({ ee_snapshot, isPsTotal, dashTo }: {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>Employment equity in hiring</span>
-              {dashTo && <DashLink to={dashTo} />}
-            </div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Employment equity in hiring</div>
           <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 2 }}>Share of new hires who self-identified as EE · ~1 year data lag</div>
         </div>
-        {/* Prior years */}
+        {/* Prior years + dash link */}
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
         {(years[1]?.rate != null || years[2]?.rate != null) && (
           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
             {years[2]?.rate != null && (
@@ -621,6 +619,8 @@ function EERepresentationModule({ ee_snapshot, isPsTotal, dashTo }: {
             )}
           </div>
         )}
+        {dashTo && <DashLink to={dashTo} />}
+        </div>
       </div>
 
       {/* Main stats row */}
@@ -1136,8 +1136,8 @@ export default function DeptSnapshot() {
 
             {/* Internal Movement */}
             <div style={{ flex: 1, minWidth: 150, background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ display: 'flex', alignItems: 'center' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   Internal Movement
                   <TooltipIcon text="Acting, promotions, and lateral/downward moves as a percentage of total appointments" />
                 </span>

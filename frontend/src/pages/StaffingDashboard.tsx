@@ -677,15 +677,60 @@ function TrendMixCharts({ data, isLoading, catCol, catLabel, title, color, descr
   );
 }
 
+const INFLOW_PALETTE = ['#1d3557', '#457b9d', '#2a9d8f', '#e9c46a', '#f4a261', '#e63946', '#adb5bd'];
+
+function WhatsDrivingHiring({ data, isLoading }: { data: Row[]; isLoading: boolean }) {
+  const { maxFy, breakdown } = useMemo(() => {
+    const maxFy = data.reduce((max, r) => String(r.fiscal_year ?? '') > max ? String(r.fiscal_year ?? '') : max, '');
+    if (!maxFy) return { maxFy: '', breakdown: [] };
+    const latest = data.filter(r => String(r.fiscal_year ?? '') === maxFy && Number(r.count ?? 0) > 0);
+    const total = latest.reduce((sum, r) => sum + Number(r.count ?? 0), 0);
+    return {
+      maxFy,
+      breakdown: latest
+        .map(r => ({ label: String(r.hire_e ?? ''), count: Number(r.count ?? 0), pct: total > 0 ? Number(r.count ?? 0) / total * 100 : 0 }))
+        .sort((a, b) => b.count - a.count),
+    };
+  }, [data]);
+
+  const partialYear = useMemo(() => detectPartialYear(data as Record<string, unknown>[]), [data]);
+  const fyLabel = maxFy === partialYear ? `${maxFy} FYTD` : maxFy;
+
+  if (isLoading || !breakdown.length) return null;
+
+  return (
+    <ChartCard title="What's driving hiring?" subtitle={`Appointment composition by hire type · ${fyLabel}`}>
+      <div style={{ paddingTop: 4 }}>
+        {breakdown.map((item, i) => (
+          <div key={item.label} style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span style={{ fontSize: 12.5, color: '#374151' }}>{item.label}</span>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: '#374151' }}>
+                {item.count.toLocaleString()} <span style={{ fontWeight: 400, color: '#9ca3af' }}>({item.pct.toFixed(0)}%)</span>
+              </span>
+            </div>
+            <div style={{ height: 6, background: '#f3f4f6', borderRadius: 99 }}>
+              <div style={{ height: 6, width: `${item.pct}%`, background: INFLOW_PALETTE[i % INFLOW_PALETTE.length], borderRadius: 99, transition: 'width 0.4s' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </ChartCard>
+  );
+}
+
 function InflowTab({ filters }: TabProps) {
   const { data = [], isLoading } = useStaffingInflow(filters);
   return (
-    <TrendMixCharts
-      data={data as Row[]} isLoading={isLoading}
-      catCol="hire_e" catLabel="Hire Type"
-      title="Inflow" color="#2a9d8f"
-      description="Annual appointments by hire type — indeterminate, term, casual, and student. Tracks workforce renewal over time."
-    />
+    <>
+      <TrendMixCharts
+        data={data as Row[]} isLoading={isLoading}
+        catCol="hire_e" catLabel="Hire Type"
+        title="Inflow" color="#2a9d8f"
+        description="Annual appointments by hire type — indeterminate, term, casual, and student. Tracks workforce renewal over time."
+      />
+      <WhatsDrivingHiring data={data as Row[]} isLoading={isLoading} />
+    </>
   );
 }
 
