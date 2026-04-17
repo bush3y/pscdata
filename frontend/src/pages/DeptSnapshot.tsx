@@ -458,12 +458,6 @@ function HiringPipelineModule({ adv_by_type, adv_processes, isPsTotal, advPctPs,
     ? ((latestProc.total - priorProc.total) / priorProc.total) * 100
     : null;
 
-  // Merge appointment % and process count for the 3-year table
-  const tableRows = years.map(y => ({
-    ...y,
-    processes: procByYear.find(p => p.fiscal_year === y.fy)?.total ?? null,
-  }));
-
   return (
     <ModuleCard title="Advertised appointment rate" subtitle="Share of staffing actions made through an open, advertised competitive process" dashTo={dashTo}>
       <div style={{ fontSize: 28, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 8 }}>
@@ -487,26 +481,18 @@ function HiringPipelineModule({ adv_by_type, adv_processes, isPsTotal, advPctPs,
       </div>
 
       <div style={{ borderTop: '1px solid #f3f4f6', marginBottom: 10 }} />
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 16 }}>
         <thead>
           <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
             <th style={{ textAlign: 'left', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Year</th>
             <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>% advertised</th>
-            {tableRows.some(r => r.processes != null) && (
-              <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Processes</th>
-            )}
           </tr>
         </thead>
         <tbody>
-          {tableRows.map((y, i) => (
+          {years.map((y, i) => (
             <tr key={y.fy} style={{ background: i % 2 === 1 ? '#f9fafb' : 'transparent' }}>
               <td style={{ padding: '5px 0', color: '#374151' }}>{y.fy}</td>
               <td style={{ padding: '5px 0', textAlign: 'right', color: '#374151', fontWeight: i === 0 ? 600 : 400 }}>{y.pct != null ? `${y.pct.toFixed(0)}%` : '—'}</td>
-              {tableRows.some(r => r.processes != null) && (
-                <td style={{ padding: '5px 0', textAlign: 'right', color: i === 0 ? '#374151' : '#6b7280', fontWeight: i === 0 ? 600 : 400 }}>
-                  {y.processes != null ? y.processes.toLocaleString() : '—'}
-                </td>
-              )}
             </tr>
           ))}
         </tbody>
@@ -540,6 +526,27 @@ function HiringPipelineModule({ adv_by_type, adv_processes, isPsTotal, advPctPs,
               </>
             )}
           </div>
+          <div style={{ borderTop: '1px solid #f3f4f6', marginBottom: 10 }} />
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 8 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
+                <th style={{ textAlign: 'left', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Year</th>
+                <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Processes</th>
+                <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Internal</th>
+                <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>External</th>
+              </tr>
+            </thead>
+            <tbody>
+              {procByYear.map((p, i) => (
+                <tr key={p.fiscal_year} style={{ background: i % 2 === 1 ? '#f9fafb' : 'transparent' }}>
+                  <td style={{ padding: '5px 0', color: '#374151' }}>{p.fiscal_year}</td>
+                  <td style={{ padding: '5px 0', textAlign: 'right', color: '#374151', fontWeight: i === 0 ? 600 : 400 }}>{p.total.toLocaleString()}</td>
+                  <td style={{ padding: '5px 0', textAlign: 'right', color: i === 0 ? '#374151' : '#6b7280' }}>{p.internal_only.toLocaleString()}</td>
+                  <td style={{ padding: '5px 0', textAlign: 'right', color: i === 0 ? '#374151' : '#6b7280' }}>{p.external.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
           <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
             Process counts from PSC raw advertisements (INT + JOP). Internal/external split based on advertisement audience flags.
           </p>
