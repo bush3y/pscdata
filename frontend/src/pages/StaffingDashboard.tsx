@@ -1367,15 +1367,22 @@ function SummaryCards({ summary }: { summary: StaffingSummary }) {
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export default function StaffingDashboard() {
-  const [activeTab, setActiveTab] = useState<TabKey>('advertisements');
   const [fiscalYears, setFiscalYears] = useState<string[]>(() => FISCAL_YEARS.slice(-10));
   const [searchParams, setSearchParams] = useSearchParams();
   const department = searchParams.get('dept') ?? '';
+  const activeTab = (searchParams.get('tab') as TabKey | null) ?? 'advertisements';
   const setDepartment = (dept: string) => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       if (dept) next.set('dept', dept);
       else next.delete('dept');
+      return next;
+    }, { replace: false });
+  };
+  const setActiveTab = (tab: TabKey) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', tab);
       return next;
     }, { replace: false });
   };

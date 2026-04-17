@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -138,6 +138,28 @@ function TooltipIcon({ text }: { text: string }) {
   );
 }
 
+// ── Deep-link to Staffing Dashboard ─────────────────────────────────────────
+
+function dashLink(dept: string | null, tab: string): string {
+  const p = new URLSearchParams();
+  if (dept) p.set('dept', dept);
+  p.set('tab', tab);
+  return `/?${p.toString()}`;
+}
+
+function DashLink({ to }: { to: string }) {
+  return (
+    <Link
+      to={to}
+      title="View in Staffing Dashboard"
+      onClick={e => e.stopPropagation()}
+      style={{ color: '#c4cada', fontSize: 12, lineHeight: 1, textDecoration: 'none', marginLeft: 4, flexShrink: 0 }}
+    >
+      ↗
+    </Link>
+  );
+}
+
 // ── KPI card ────────────────────────────────────────────────────────────────
 
 function KpiRow({ label, value, color }: { label: string; value: string; color?: string }) {
@@ -149,13 +171,14 @@ function KpiRow({ label, value, color }: { label: string; value: string; color?:
   );
 }
 
-function KpiCard({ label, value, yoy, psYoy, extra, highlight }: {
+function KpiCard({ label, value, yoy, psYoy, extra, highlight, dashTo }: {
   label: string;
   value: number | null;
   yoy: number | null;
   psYoy?: number | null;
   extra?: React.ReactNode;
   highlight?: boolean;
+  dashTo?: string;
 }) {
   return (
     <div style={{
@@ -166,8 +189,9 @@ function KpiCard({ label, value, yoy, psYoy, extra, highlight }: {
       padding: '18px 20px',
       boxShadow: highlight ? '0 2px 8px rgba(29,53,87,0.1)' : '0 1px 4px rgba(0,0,0,0.04)',
     }}>
-      <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>
-        {label}
+      <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>{label}</span>
+        {dashTo && <DashLink to={dashTo} />}
       </div>
       <div style={{ fontSize: highlight ? 32 : 26, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12 }}>
         {value != null ? value.toLocaleString() : '—'}
@@ -374,10 +398,13 @@ function ComparisonTable({ rows, deptName, peerLabel }: {
 
 // ── Context module card shell ────────────────────────────────────────────────
 
-function ModuleCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function ModuleCard({ title, subtitle, dashTo, children }: { title: string; subtitle?: string; dashTo?: string; children: React.ReactNode }) {
   return (
     <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '18px 20px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', flex: 1, minWidth: 220 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: subtitle ? 2 : 12 }}>{title}</div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: subtitle ? 2 : 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>{title}</span>
+        {dashTo && <DashLink to={dashTo} />}
+      </div>
       {subtitle && <div style={{ fontSize: 11.5, color: '#6b7280', marginBottom: 14 }}>{subtitle}</div>}
       {children}
     </div>
@@ -394,11 +421,12 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function HiringPipelineModule({ adv_by_type, adv_processes, isPsTotal, advPctPs }: {
+function HiringPipelineModule({ adv_by_type, adv_processes, isPsTotal, advPctPs, dashTo }: {
   adv_by_type:   { fiscal_year: string; adv_e: string; count: number | null }[];
   adv_processes: { fiscal_year: string; total: number; internal_only: number; external: number }[];
   isPsTotal: boolean;
   advPctPs: number | null;
+  dashTo?: string;
 }) {
   const years = useMemo(() => {
     const map: Record<string, { total: number; advertised: number }> = {};
@@ -436,7 +464,7 @@ function HiringPipelineModule({ adv_by_type, adv_processes, isPsTotal, advPctPs 
   }));
 
   return (
-    <ModuleCard title="Advertised appointment rate" subtitle="Share of indeterminate appointments made through an open, advertised competitive process">
+    <ModuleCard title="Advertised appointment rate" subtitle="Share of indeterminate appointments made through an open, advertised competitive process" dashTo={dashTo}>
       <div style={{ fontSize: 28, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 8 }}>
         {latest.pct != null ? `${latest.pct.toFixed(0)}%` : '—'}
         <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>of indet. appointments · {latest.fy}</span>
@@ -536,9 +564,10 @@ function eeRate(rows: EeRow[], fy: string): number | null {
   return total > 0 ? (ee / total) * 100 : null;
 }
 
-function EERepresentationModule({ ee_snapshot, isPsTotal }: {
+function EERepresentationModule({ ee_snapshot, isPsTotal, dashTo }: {
   ee_snapshot: { dept: EeRow[]; ps: EeRow[] };
   isPsTotal: boolean;
+  dashTo?: string;
 }) {
   const { dept, ps } = ee_snapshot;
   if (!dept.length) return null;
@@ -569,7 +598,10 @@ function EERepresentationModule({ ee_snapshot, isPsTotal }: {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>Employment equity in hiring</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>Employment equity in hiring</span>
+              {dashTo && <DashLink to={dashTo} />}
+            </div>
           <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 2 }}>Share of new hires who self-identified as EE · ~1 year data lag</div>
         </div>
         {/* Prior years */}
@@ -657,9 +689,10 @@ const CROSS_ORG_HIRE_TYPES = new Set([
   'Term from other organization',
 ]);
 
-function MobilityDetailModule({ mobility_trend, inflow_by_type }: {
+function MobilityDetailModule({ mobility_trend, inflow_by_type, dashTo }: {
   mobility_trend: { fiscal_year: string; mob_type_e: string; count: number | null }[];
   inflow_by_type: { fiscal_year: string; hire_e: string; count: number | null }[];
+  dashTo?: string;
 }) {
   const MOB_TYPE_LABEL: Record<string, string> = {
     'Acting':              'Acting (>4 months)',
@@ -703,7 +736,7 @@ function MobilityDetailModule({ mobility_trend, inflow_by_type }: {
   const mobYoy = latest.mobRate != null && prior?.mobRate != null ? latest.mobRate - prior.mobRate : null;
 
   return (
-    <ModuleCard title="Internal movement rate" subtitle="Acting, promotions, and lateral moves as a share of total appointments">
+    <ModuleCard title="Internal movement rate" subtitle="Acting, promotions, and lateral moves as a share of total appointments" dashTo={dashTo}>
       <div style={{ fontSize: 24, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 8 }}>
         {latest.mobRate != null ? `${latest.mobRate.toFixed(0)}%` : '—'}
         <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>mobility rate · {latest.fy}</span>
@@ -1086,6 +1119,7 @@ export default function DeptSnapshot() {
               yoy={hiringYoy}
               psYoy={!isPsTotal ? hiringYoyPs : undefined}
               highlight
+              dashTo={dashLink(selectedDept, 'inflow')}
             />
 
             {/* Departures */}
@@ -1094,6 +1128,7 @@ export default function DeptSnapshot() {
               value={leavingVal}
               yoy={leavingYoy}
               psYoy={!isPsTotal ? leavingYoyPs : undefined}
+              dashTo={dashLink(selectedDept, 'outflow')}
             />
 
             {/* Net Change */}
@@ -1101,9 +1136,12 @@ export default function DeptSnapshot() {
 
             {/* Internal Movement */}
             <div style={{ flex: 1, minWidth: 150, background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10, display: 'flex', alignItems: 'center' }}>
-                Internal Movement
-                <TooltipIcon text="Acting, promotions, and lateral/downward moves as a percentage of total appointments" />
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ display: 'flex', alignItems: 'center' }}>
+                  Internal Movement
+                  <TooltipIcon text="Acting, promotions, and lateral/downward moves as a percentage of total appointments" />
+                </span>
+                <DashLink to={dashLink(selectedDept, 'mobility')} />
               </div>
               <div style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12 }}>
                 {mobilityPct != null ? `${mobilityPct.toFixed(0)}%` : mobilityVal != null ? mobilityVal.toLocaleString() : '—'}
@@ -1172,12 +1210,17 @@ export default function DeptSnapshot() {
               adv_processes={data.adv_processes ?? []}
               isPsTotal={isPsTotal}
               advPctPs={data.adv_pct.ps}
+              dashTo={dashLink(selectedDept, 'advertisements')}
             />
-            <MobilityDetailModule mobility_trend={data.mobility_trend ?? []} inflow_by_type={data.inflow_by_type ?? []} />
+            <MobilityDetailModule
+              mobility_trend={data.mobility_trend ?? []}
+              inflow_by_type={data.inflow_by_type ?? []}
+              dashTo={dashLink(selectedDept, 'mobility')}
+            />
           </div>
 
           {data.ee_snapshot?.dept?.length > 0 && (
-            <EERepresentationModule ee_snapshot={data.ee_snapshot} isPsTotal={isPsTotal} />
+            <EERepresentationModule ee_snapshot={data.ee_snapshot} isPsTotal={isPsTotal} dashTo={dashLink(selectedDept, 'demographics')} />
           )}
         </>
       )}
