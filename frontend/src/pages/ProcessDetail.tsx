@@ -317,6 +317,12 @@ export default function ProcessDetail() {
                 <div style={{ fontSize: 13.5, color: '#6b7280' }}>
                   {fmt(process.organization_e)}&ensp;·&ensp;{fmt(process.administrator_region_e)}&ensp;·&ensp;{fmt(process.fiscal_year)}
                 </div>
+                {advUrl && (
+                  <a href={advUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'inline-block', marginTop: 10, fontSize: 12.5, color: '#1d3557', textDecoration: 'none', fontWeight: 500 }}>
+                    View on GC Jobs ↗
+                  </a>
+                )}
               </div>
               <span style={{
                 ...statusStyle(fmt(process.status_e)),
@@ -357,14 +363,6 @@ export default function ProcessDetail() {
               {city !== '—' && <Row label="City" value={city} />}
               <Row label="Province"     value={fmt(process.province_name_e)} />
               <Row label="Tenure Sought" value={appointmentTypes} />
-              {advUrl && (
-                <Row label="Job Posting" value={
-                  <a href={advUrl} target="_blank" rel="noopener noreferrer"
-                    style={{ color: '#1d3557', fontSize: 13 }}>
-                    View on GC Jobs ↗
-                  </a>
-                } />
-              )}
               <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '24px 0 4px' }}>
                 Classifications
               </div>
