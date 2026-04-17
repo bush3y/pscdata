@@ -262,7 +262,7 @@ const HIRE_LABEL_SHORT: Record<string, string> = {
   'Term from other organization': 'Term other org',
 };
 
-function HiringComposition({ inflow_by_type }: { inflow_by_type: { fiscal_year: string; hire_e: string; count: number | null }[] }) {
+function HiringComposition({ inflow_by_type, dashTo }: { inflow_by_type: { fiscal_year: string; hire_e: string; count: number | null }[]; dashTo?: string }) {
   if (!inflow_by_type.length) return null;
 
   const latestFy = inflow_by_type.reduce((max, r) => r.fiscal_year > max ? r.fiscal_year : max, '');
@@ -282,8 +282,9 @@ function HiringComposition({ inflow_by_type }: { inflow_by_type: { fiscal_year: 
       boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
       marginBottom: 0,
     }}>
-      <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 2 }}>
-        What's driving hiring?
+      <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>What's driving hiring?</span>
+        {dashTo && <DashLink to={dashTo} />}
       </div>
       <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 18 }}>
         Hiring breakdown by type · {latestFy}
@@ -1136,15 +1137,13 @@ export default function DeptSnapshot() {
 
             {/* Internal Movement */}
             <div style={{ flex: 1, minWidth: 150, background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  Internal Movement
-                  <TooltipIcon text="Acting, promotions, and lateral/downward moves as a percentage of total appointments" />
-                </span>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>Internal Movement</span>
                 <DashLink to={dashLink(selectedDept, 'mobility')} />
               </div>
-              <div style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12 }}>
+              <div style={{ fontSize: 26, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
                 {mobilityPct != null ? `${mobilityPct.toFixed(0)}%` : mobilityVal != null ? mobilityVal.toLocaleString() : '—'}
+                <TooltipIcon text="Acting, promotions, and lateral/downward moves as a percentage of total appointments" />
               </div>
               <div>
                 {mobilityVal != null && (
@@ -1177,7 +1176,7 @@ export default function DeptSnapshot() {
           {/* ── Hiring composition ────────────────────────────────────────── */}
           {data.inflow_by_type?.length > 0 && (
             <div style={{ marginBottom: 28 }}>
-              <HiringComposition inflow_by_type={data.inflow_by_type} />
+              <HiringComposition inflow_by_type={data.inflow_by_type} dashTo={dashLink(selectedDept, 'inflow')} />
             </div>
           )}
 
