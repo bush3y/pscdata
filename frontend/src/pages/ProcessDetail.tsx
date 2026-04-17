@@ -261,7 +261,7 @@ export default function ProcessDetail() {
       )}
 
       {/* Empty state — shown before any search */}
-      {!selected && !isLoading && (
+      {!selected && urlId == null && !isLoading && (
         <div style={{ border: '1.5px dashed #e5e7eb', borderRadius: 14, overflow: 'hidden', opacity: 0.5, pointerEvents: 'none' }}>
           <div style={{ padding: '24px 28px', borderBottom: '1px solid #f3f4f6' }}>
             <div style={{ height: 12, width: 160, background: '#f3f4f6', borderRadius: 4, marginBottom: 10 }} />
