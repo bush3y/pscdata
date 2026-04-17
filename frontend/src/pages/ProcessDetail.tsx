@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import client from '../api/client';
 
@@ -16,12 +17,14 @@ function useAutocomplete(q: string) {
   });
 }
 
-function useProcess(refNum: string) {
+function useProcess(refNum: string, carChcId: number | null) {
   return useQuery<Record<string, unknown>>({
-    queryKey: ['adv-process', refNum],
-    queryFn: () =>
-      client.get('/advertisements/process', { params: { reference_number: refNum } }).then(r => r.data),
-    enabled: !!refNum,
+    queryKey: ['adv-process', carChcId ?? refNum],
+    queryFn: () => {
+      const params = carChcId != null ? { car_chc_id: carChcId } : { reference_number: refNum };
+      return client.get('/advertisements/process', { params }).then(r => r.data);
+    },
+    enabled: !!refNum || carChcId != null,
     retry: false,
   });
 }
@@ -112,6 +115,9 @@ function FunnelBar({ label, value, total, color }: { label: string; value: numbe
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export default function ProcessDetail() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlId = searchParams.get('id') ? Number(searchParams.get('id')) : null;
+
   const [input, setInput] = useState('');
   const [selected, setSelected] = useState('');
   const [open, setOpen] = useState(false);
@@ -119,7 +125,7 @@ export default function ProcessDetail() {
   const listRef = useRef<HTMLUListElement>(null);
 
   const { data: suggestions = [] } = useAutocomplete(input);
-  const { data: process, isLoading, error } = useProcess(selected);
+  const { data: process, isLoading, error } = useProcess(selected, urlId);
 
   useEffect(() => {
     function handle(e: MouseEvent) {
@@ -137,9 +143,17 @@ export default function ProcessDetail() {
   }
   function handleKeyDown(e: React.KeyboardEvent) { if (e.key === 'Enter' && input.trim()) pick(input.trim()); }
 
+  // Sync car_chc_id to URL when a process loads
+  useEffect(() => {
+    if (process?.car_chc_id != null) {
+      setSearchParams({ id: String(process.car_chc_id) }, { replace: true });
+    }
+  }, [process?.car_chc_id]);
+
   const submitted   = Number(process?.total_submitted_sup ?? 0);
   const screenedIn  = Number(process?.total_in_sup ?? 0);
   const screenedOut = Number(process?.total_out_sup ?? 0);
+  const cafIn       = process?.caf_in != null ? Number(process.caf_in) : null;
 
   const eeGroups = [
     { label: 'Women',                   key: 'women_submitted_sup' },
@@ -255,7 +269,7 @@ export default function ProcessDetail() {
             <div style={{ height: 14, width: 260, background: '#f3f4f6', borderRadius: 4 }} />
           </div>
           <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6' }}>
-            {['Applications', 'Screened In', 'Appointed'].map(label => (
+            {['Applications', 'Screened In', 'Screened Out'].map(label => (
               <div key={label} style={{ flex: 1, padding: '20px 24px', borderRight: '1px solid #f3f4f6' }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{label}</div>
                 <div style={{ height: 28, width: 80, background: '#f3f4f6', borderRadius: 4 }} />
@@ -374,6 +388,14 @@ export default function ProcessDetail() {
                     <FunnelBar label="Submitted"    value={submitted}   total={submitted} color="#1d3557" />
                     <FunnelBar label="Screened In"  value={screenedIn}  total={submitted} color="#457b9d" />
                     {screenedOut > 0 && <FunnelBar label="Screened Out" value={screenedOut} total={submitted} color="#e63946" />}
+                    {cafIn != null && cafIn > 0 && (
+                      <div style={{ marginTop: 4 }}>
+                        <FunnelBar label="CAF Members" value={cafIn} total={submitted} color="#6b7280" />
+                        <p style={{ margin: '-8px 0 8px', fontSize: 11, color: '#9ca3af', lineHeight: 1.4 }}>
+                          Canadian Armed Forces members who participated in this process. Not a count of appointments.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </>
               )}

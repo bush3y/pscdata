@@ -64,8 +64,21 @@ async def autocomplete_reference(q: str = "", limit: int = 10) -> list[dict]:
 
 
 @router.get("/process")
-async def get_process(reference_number: str) -> dict:
-    """Return full detail for a single process by reference number or selection process number."""
+async def get_process(
+    reference_number: str | None = None,
+    car_chc_id: int | None = None,
+) -> dict:
+    """Return full detail for a single process by reference number, selection process number, or car_chc_id."""
+    if car_chc_id is not None:
+        rows = query_to_records(
+            "SELECT * FROM raw_advertisements WHERE car_chc_id = ? ORDER BY _loaded_at DESC LIMIT 1",  # noqa: S608
+            [car_chc_id],
+        )
+        if not rows:
+            raise HTTPException(status_code=404, detail=f"Process '{car_chc_id}' not found.")
+        return rows[0]
+    if not reference_number:
+        raise HTTPException(status_code=422, detail="Provide reference_number or car_chc_id.")
     rows = query_to_records(
         """
         SELECT * FROM raw_advertisements
