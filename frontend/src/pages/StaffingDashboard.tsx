@@ -1396,7 +1396,9 @@ export default function StaffingDashboard() {
 
   return (
     <div>
-      <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>Staffing Dashboard</h2>
+      <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>
+        Staffing Dashboard{department ? <span style={{ color: '#6b7280', fontWeight: 400 }}> — {department}</span> : ''}
+      </h2>
       <p style={{ margin: '0 0 20px', color: '#6b7280', fontSize: 13 }}>
         Workforce activity across the federal public service · PSC open data
       </p>

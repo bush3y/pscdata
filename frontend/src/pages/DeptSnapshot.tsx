@@ -1029,7 +1029,7 @@ export default function DeptSnapshot() {
 
       {/* Header */}
       <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>
-        Department Snapshot
+        Department Snapshot{selectedDept ? <span style={{ color: '#6b7280', fontWeight: 400 }}> — {selectedDept}</span> : ''}
       </h2>
       <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280' }}>
         What's happening in this department?
