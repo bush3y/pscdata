@@ -547,9 +547,6 @@ function HiringPipelineModule({ adv_by_type, adv_processes, isPsTotal, advPctPs,
               ))}
             </tbody>
           </table>
-          <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
-            Process counts from PSC raw advertisements (INT + JOP). Internal/external split based on advertisement audience flags.
-          </p>
         </>
       )}
     </ModuleCard>
