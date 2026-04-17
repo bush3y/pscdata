@@ -3,6 +3,16 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import client from '../api/client';
 
+function useIsMobile(breakpoint = 640) {
+  const [mobile, setMobile] = useState(() => window.innerWidth < breakpoint);
+  useEffect(() => {
+    const handler = () => setMobile(window.innerWidth < breakpoint);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, [breakpoint]);
+  return mobile;
+}
+
 // ── API hooks ──────────────────────────────────────────────────────────────
 
 interface AutocompleteResult { reference_number: string | null; selection_process_number: string | null }
@@ -58,10 +68,17 @@ function statusStyle(status: string): React.CSSProperties {
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
+function Row({ label, value, isMobile }: { label: string; value: React.ReactNode; isMobile?: boolean }) {
   return (
-    <div style={{ display: 'flex', gap: 12, padding: '11px 0', borderBottom: '1px solid #f3f4f6', alignItems: 'flex-start' }}>
-      <span style={{ minWidth: 160, fontSize: 12, fontWeight: 500, color: '#9ca3af', paddingTop: 1 }}>{label}</span>
+    <div style={{
+      display: 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
+      gap: isMobile ? 2 : 12,
+      padding: '11px 0',
+      borderBottom: '1px solid #f3f4f6',
+      alignItems: 'flex-start',
+    }}>
+      <span style={{ minWidth: isMobile ? 0 : 160, fontSize: 11.5, fontWeight: 600, color: '#9ca3af', paddingTop: 1 }}>{label}</span>
       <span style={{ fontSize: 13.5, color: '#111827', flex: 1, lineHeight: 1.5, wordBreak: 'break-word' }}>{value}</span>
     </div>
   );
@@ -84,11 +101,16 @@ function Chip({ label }: { label: string }) {
   );
 }
 
-function StatBox({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
+function StatBox({ label, value, sub, color, isMobile }: { label: string; value: string; sub?: string; color: string; isMobile?: boolean }) {
   return (
-    <div style={{ flex: 1, padding: '20px 24px', borderRight: '1px solid #f3f4f6' }}>
+    <div style={{
+      flex: isMobile ? '1 1 calc(50% - 1px)' : 1,
+      padding: isMobile ? '16px 20px' : '20px 24px',
+      borderRight: '1px solid #f3f4f6',
+      borderBottom: isMobile ? '1px solid #f3f4f6' : 'none',
+    }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 28, fontWeight: 700, color, lineHeight: 1, marginBottom: 4 }}>{value}</div>
+      <div style={{ fontSize: 26, fontWeight: 700, color, lineHeight: 1, marginBottom: 4 }}>{value}</div>
       {sub && <div style={{ fontSize: 12, color: '#9ca3af' }}>{sub}</div>}
     </div>
   );
@@ -115,6 +137,7 @@ function FunnelBar({ label, value, total, color }: { label: string; value: numbe
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export default function ProcessDetail() {
+  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlId = searchParams.get('id') ? Number(searchParams.get('id')) : null;
 
@@ -277,14 +300,14 @@ export default function ProcessDetail() {
             ))}
             <div style={{ flex: 1 }} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-            <div style={{ padding: '8px 28px 24px', borderRight: '1px solid #f3f4f6' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr' }}>
+            <div style={{ padding: '8px 28px 24px', borderRight: isMobile ? 'none' : '1px solid #f3f4f6' }}>
               <div style={{ height: 10, width: 70, background: '#f3f4f6', borderRadius: 4, margin: '20px 0 12px' }} />
               {[200, 140, 180, 120, 160, 100, 150].map((w, i) => (
                 <div key={i} style={{ height: 14, width: w, background: '#f3f4f6', borderRadius: 4, marginBottom: 14 }} />
               ))}
             </div>
-            <div style={{ padding: '8px 28px 24px' }}>
+            <div style={{ padding: '8px 28px 24px', borderTop: isMobile ? '1px solid #f3f4f6' : 'none' }}>
               <div style={{ height: 10, width: 100, background: '#f3f4f6', borderRadius: 4, margin: '20px 0 12px' }} />
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {[40, 50, 45, 55, 42, 48, 52].map((w, i) => (
@@ -300,7 +323,7 @@ export default function ProcessDetail() {
         <div style={{ border: '1.5px solid #e5e7eb', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
 
           {/* Header */}
-          <div style={{ padding: '24px 28px', borderBottom: '1px solid #f3f4f6' }}>
+          <div style={{ padding: isMobile ? '20px 20px' : '24px 28px', borderBottom: '1px solid #f3f4f6' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontSize: 11.5, fontFamily: 'monospace', color: '#6b7280', fontWeight: 600, marginBottom: 4, letterSpacing: '0.04em' }}>
@@ -347,32 +370,32 @@ export default function ProcessDetail() {
           {/* Stats row */}
           {(submitted > 0 || screenedIn > 0) && (
             <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6', flexWrap: 'wrap' }}>
-              <StatBox label="Applications" value={submitted.toLocaleString()} color="#1d3557" />
-              <StatBox label="Screened In"  value={screenedIn.toLocaleString()} sub={screenedPct.replace(' · ', '')} color="#457b9d" />
-              {screenedOut > 0 && <StatBox label="Screened Out" value={screenedOut.toLocaleString()} color="#e63946" />}
-              <div style={{ flex: 1 }} />
+              <StatBox isMobile={isMobile} label="Applications" value={submitted.toLocaleString()} color="#1d3557" />
+              <StatBox isMobile={isMobile} label="Screened In"  value={screenedIn.toLocaleString()} sub={screenedPct.replace(' · ', '')} color="#457b9d" />
+              {screenedOut > 0 && <StatBox isMobile={isMobile} label="Screened Out" value={screenedOut.toLocaleString()} color="#e63946" />}
+              {!isMobile && <div style={{ flex: 1 }} />}
             </div>
           )}
 
           {/* Two-column detail */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 0 }}>
 
             {/* Left column */}
-            <div style={{ padding: '8px 28px 24px', borderRight: '1px solid #f3f4f6' }}>
+            <div style={{ padding: isMobile ? '8px 20px 24px' : '8px 28px 24px', borderRight: isMobile ? 'none' : '1px solid #f3f4f6' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '16px 0 4px' }}>
                 Overview
               </div>
-              <Row label="Open Date"    value={fmtDate(process.open_date)} />
-              <Row label="Close Date"   value={fmtDate(process.close_date)} />
+              <Row isMobile={isMobile} label="Open Date"    value={fmtDate(process.open_date)} />
+              <Row isMobile={isMobile} label="Close Date"   value={fmtDate(process.close_date)} />
               {process.number_days_open != null && (
-                <Row label="Days Open" value={`${fmtNum(process.number_days_open)} days`} />
+                <Row isMobile={isMobile} label="Days Open" value={`${fmtNum(process.number_days_open)} days`} />
               )}
-              <Row label="Ad Type"      value={fmt(process.advertisement_type_e)} />
-              <Row label="Audience"     value={audience} />
-              <Row label="Program"      value={fmt(process.recruitment_program_e)} />
-              {city !== '—' && <Row label="City" value={city} />}
-              <Row label="Province"     value={fmt(process.province_name_e)} />
-              <Row label="Tenure Sought" value={appointmentTypes} />
+              <Row isMobile={isMobile} label="Ad Type"      value={fmt(process.advertisement_type_e)} />
+              <Row isMobile={isMobile} label="Audience"     value={audience} />
+              <Row isMobile={isMobile} label="Program"      value={fmt(process.recruitment_program_e)} />
+              {city !== '—' && <Row isMobile={isMobile} label="City" value={city} />}
+              <Row isMobile={isMobile} label="Province"     value={fmt(process.province_name_e)} />
+              <Row isMobile={isMobile} label="Tenure Sought" value={appointmentTypes} />
               <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '24px 0 4px' }}>
                 Classifications
               </div>
@@ -385,7 +408,7 @@ export default function ProcessDetail() {
             </div>
 
             {/* Right column */}
-            <div style={{ padding: '8px 28px 24px' }}>
+            <div style={{ padding: isMobile ? '0 20px 24px' : '8px 28px 24px', borderTop: isMobile ? '1px solid #f3f4f6' : 'none' }}>
 
               {(submitted > 0 || screenedIn > 0) && (
                 <>
