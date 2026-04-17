@@ -146,10 +146,14 @@ export default function ProcessDetail() {
     { label: 'Visible Minority',        key: 'vismin_submitted_sup' },
     { label: 'Indigenous',              key: 'indigenous_submitted_sup' },
     { label: 'Persons w/ Disabilities', key: 'pwd_submitted_sup' },
-    { label: 'Francophone',             key: 'french_submitted_sup' },
-    { label: 'Anglophone',              key: 'english_submitted_sup' },
   ].map(g => ({ ...g, value: process?.[g.key] != null ? Number(process[g.key]) : null }));
   const hasEE = eeGroups.some(g => g.value !== null);
+
+  const folGroups = [
+    { label: 'Francophone', key: 'french_submitted_sup' },
+    { label: 'Anglophone',  key: 'english_submitted_sup' },
+  ].map(g => ({ ...g, value: process?.[g.key] != null ? Number(process[g.key]) : null }));
+  const hasFOL = folGroups.some(g => g.value !== null);
 
   const classifications = process?.classifications
     ? String(process.classifications).split(',').map(s => s.trim()).filter(Boolean)
@@ -364,7 +368,7 @@ export default function ProcessDetail() {
               {(submitted > 0 || screenedIn > 0) && (
                 <>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '24px 0 4px' }}>
-                    Funnel
+                    Application Status
                   </div>
                   <div style={{ paddingTop: 12 }}>
                     <FunnelBar label="Submitted"    value={submitted}   total={submitted} color="#1d3557" />
@@ -395,6 +399,32 @@ export default function ProcessDetail() {
                     ))}
                     <p style={{ margin: '8px 0 0', fontSize: 11, color: '#9ca3af', lineHeight: 1.4 }}>
                       Count of applicants self-identifying in each EE group. Suppressed (&lt;5) shown as —.
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {hasFOL && (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '24px 0 4px' }}>
+                    First Official Language
+                  </div>
+                  <div style={{ paddingTop: 8 }}>
+                    {folGroups.map(g => g.value !== null && (
+                      <div key={g.key} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f3f4f6', fontSize: 13 }}>
+                        <span style={{ color: '#374151' }}>{g.label}</span>
+                        <span style={{ fontWeight: 600, color: '#111827' }}>
+                          {g.value!.toLocaleString()}
+                          {submitted > 0 && (
+                            <span style={{ fontWeight: 400, color: '#9ca3af', marginLeft: 6, fontSize: 12 }}>
+                              {((g.value! / submitted) * 100).toFixed(1)}%
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                    <p style={{ margin: '8px 0 0', fontSize: 11, color: '#9ca3af', lineHeight: 1.4 }}>
+                      Applicants' first official language as declared. Suppressed (&lt;5) shown as —.
                     </p>
                   </div>
                 </>
