@@ -220,6 +220,37 @@ const checkboxLabel: React.CSSProperties = {
 
 const VIZ_BAR_LIMIT = 30;
 
+// ── SQL generator ────────────────────────────────────────────────────────────
+
+const FILTER_COL_MAP: Record<keyof Filters, string> = {
+  fiscal_year:        'fiscal_year',
+  organization:       'organization_e',
+  region:             'administrator_region_e',
+  status:             'status_e',
+  advertisement_type: 'advertisement_type_e',
+  recruitment_program:'recruitment_program_e',
+  classifications:    'classifications',
+};
+
+function buildSQL(selectedCols: Set<string>, filters: Filters, limit: number): string {
+  const cols = ALL_COLUMNS.map(c => c.key).filter(k => selectedCols.has(k));
+  const colList = cols.length > 0 ? cols.join(',\n  ') : '*';
+
+  const conditions: string[] = [];
+  (Object.keys(filters) as (keyof Filters)[]).forEach(key => {
+    const vals = filters[key];
+    if (!vals.length) return;
+    const col = FILTER_COL_MAP[key];
+    const quoted = vals.map(v => `'${v.replace(/'/g, "''")}'`).join(', ');
+    conditions.push(`${col} IN (${quoted})`);
+  });
+
+  const where = conditions.length > 0 ? `\nWHERE ${conditions.join('\n  AND ')}` : '';
+  const limitClause = limit > 0 ? `\nLIMIT ${limit}` : '';
+
+  return `SELECT\n  ${colList}\nFROM raw_advertisements${where}${limitClause}`;
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function QueryTable() {
@@ -389,7 +420,14 @@ export default function QueryTable() {
             return (
               <button
                 key={mode}
-                onClick={() => { setAdvancedMode(mode === 'Advanced SQL'); setShowViz(false); }}
+                onClick={() => {
+                const goAdvanced = mode === 'Advanced SQL';
+                if (goAdvanced && !sqlText.trim()) {
+                  setSqlText(buildSQL(selectedCols, filters, limit));
+                }
+                setAdvancedMode(goAdvanced);
+                setShowViz(false);
+              }}
                 style={{
                   padding: '5px 14px', borderRadius: 4, border: 'none', cursor: 'pointer',
                   fontSize: 12, fontWeight: active ? 700 : 400,
