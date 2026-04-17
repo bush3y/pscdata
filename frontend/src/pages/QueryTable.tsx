@@ -548,8 +548,15 @@ export default function QueryTable() {
               resize: 'vertical', minHeight: 140, outline: 'none',
             }}
           />
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6 }}>
-            SELECT only · no semicolons · Cmd/Ctrl+Enter to run
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+            <span style={{ fontSize: 11, color: '#9ca3af' }}>SELECT only · no semicolons · Cmd/Ctrl+Enter to run</span>
+            <button
+              onClick={() => setSqlText(buildSQL(selectedCols, filters, limit))}
+              style={{ fontSize: 11, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              title="Regenerate from standard column/filter selection"
+            >
+              ↺ Sync from standard
+            </button>
           </div>
         </div>
       )}
