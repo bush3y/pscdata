@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import client from '../api/client';
 import { useFilterOptions } from '../api/advertisements';
@@ -261,9 +262,11 @@ export default function QueryTable() {
   const [showViz, setShowViz] = useState(false);
   const [viz, setViz] = useState<VizConfig>({ xCol: 'fiscal_year', yCol: 'adv_count', chartType: 'bar', asPct: false });
 
+  const [searchParams] = useSearchParams();
+
   // Advanced SQL mode
-  const [advancedMode, setAdvancedMode] = useState(false);
-  const [sqlText, setSqlText] = useState('');
+  const [advancedMode, setAdvancedMode] = useState(() => !!searchParams.get('sql'));
+  const [sqlText, setSqlText] = useState(() => searchParams.get('sql') ?? '');
   const [advancedRunSql, setAdvancedRunSql] = useState<{ sql: string; limit: number } | null>(null);
 
   const { data: filterOptions } = useFilterOptions();

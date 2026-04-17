@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import client from '../api/client';
 
@@ -317,12 +317,22 @@ export default function ProcessDetail() {
                 <div style={{ fontSize: 13.5, color: '#6b7280' }}>
                   {fmt(process.organization_e)}&ensp;·&ensp;{fmt(process.administrator_region_e)}&ensp;·&ensp;{fmt(process.fiscal_year)}
                 </div>
-                {advUrl && (
-                  <a href={advUrl} target="_blank" rel="noopener noreferrer"
-                    style={{ display: 'inline-block', marginTop: 10, fontSize: 12.5, color: '#1d3557', textDecoration: 'none', fontWeight: 500 }}>
-                    View on GC Jobs ↗
-                  </a>
-                )}
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+                  {advUrl && (
+                    <a href={advUrl} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: 12.5, color: '#1d3557', textDecoration: 'none', fontWeight: 500 }}>
+                      View on GC Jobs ↗
+                    </a>
+                  )}
+                  {process.car_chc_id != null && (
+                    <Link
+                      to={`/query?sql=${encodeURIComponent(`SELECT *\nFROM raw_advertisements\nWHERE car_chc_id = ${process.car_chc_id}`)}`}
+                      style={{ fontSize: 12.5, color: '#6b7280', textDecoration: 'none', fontWeight: 500 }}
+                    >
+                      View full data ↗
+                    </Link>
+                  )}
+                </div>
               </div>
               <span style={{
                 ...statusStyle(fmt(process.status_e)),
