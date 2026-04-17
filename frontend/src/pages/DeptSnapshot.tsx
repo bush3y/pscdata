@@ -465,17 +465,15 @@ function HiringPipelineModule({ adv_by_type, adv_processes, isPsTotal, advPctPs,
   }));
 
   return (
-    <ModuleCard title="Advertised appointment rate" subtitle="Share of indeterminate appointments made through an open, advertised competitive process" dashTo={dashTo}>
+    <ModuleCard title="Advertised appointment rate" subtitle="Share of staffing actions made through an open, advertised competitive process" dashTo={dashTo}>
       <div style={{ fontSize: 28, fontWeight: 700, color: '#111827', lineHeight: 1, marginBottom: 8 }}>
         {latest.pct != null ? `${latest.pct.toFixed(0)}%` : '—'}
-        <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>of indet. appointments · {latest.fy}</span>
+        <span style={{ fontSize: 12, fontWeight: 400, color: '#6b7280', marginLeft: 6 }}>advertised · {latest.fy}</span>
       </div>
       <div style={{ height: 6, background: '#f3f4f6', borderRadius: 99, marginBottom: 14 }}>
         <div style={{ height: 6, width: `${Math.min(latest.pct ?? 0, 100)}%`, background: '#1d3557', borderRadius: 99, transition: 'width 0.4s' }} />
       </div>
       <div style={{ marginBottom: 14 }}>
-        <KpiRow label="Advertised appointments" value={latest.advertised.toLocaleString()} />
-        <KpiRow label="Total indeterminate appointments" value={latest.total.toLocaleString()} color="#9ca3af" />
         {advYoy != null && (
           <KpiRow
             label="Change vs prior year"
@@ -493,9 +491,7 @@ function HiringPipelineModule({ adv_by_type, adv_processes, isPsTotal, advPctPs,
         <thead>
           <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
             <th style={{ textAlign: 'left', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Year</th>
-            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Indet. appts</th>
-            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Advertised</th>
-            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>% adv.</th>
+            <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>% advertised</th>
             {tableRows.some(r => r.processes != null) && (
               <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 600 }}>Processes</th>
             )}
@@ -505,8 +501,6 @@ function HiringPipelineModule({ adv_by_type, adv_processes, isPsTotal, advPctPs,
           {tableRows.map((y, i) => (
             <tr key={y.fy} style={{ background: i % 2 === 1 ? '#f9fafb' : 'transparent' }}>
               <td style={{ padding: '5px 0', color: '#374151' }}>{y.fy}</td>
-              <td style={{ padding: '5px 0', textAlign: 'right', color: '#6b7280' }}>{y.total.toLocaleString()}</td>
-              <td style={{ padding: '5px 0', textAlign: 'right', color: '#374151', fontWeight: i === 0 ? 600 : 400 }}>{y.advertised.toLocaleString()}</td>
               <td style={{ padding: '5px 0', textAlign: 'right', color: '#374151', fontWeight: i === 0 ? 600 : 400 }}>{y.pct != null ? `${y.pct.toFixed(0)}%` : '—'}</td>
               {tableRows.some(r => r.processes != null) && (
                 <td style={{ padding: '5px 0', textAlign: 'right', color: i === 0 ? '#374151' : '#6b7280', fontWeight: i === 0 ? 600 : 400 }}>
@@ -1025,7 +1019,7 @@ export default function DeptSnapshot() {
       },
       {
         label: 'Advertised appointment %',
-        tooltip: 'Percentage of indeterminate appointments made through an advertised competitive process',
+        tooltip: 'Percentage of staffing actions made through an advertised competitive process (PSC appointment integrity metric)',
         dept: data.adv_pct.dept != null ? `${data.adv_pct.dept.toFixed(0)}%` : '—',
         peer: pb ? (pb.adv_pct != null ? `${pb.adv_pct.toFixed(0)}%` : '—') : undefined,
         ps:   data.adv_pct.ps  != null ? `${data.adv_pct.ps.toFixed(0)}%`   : '—',
