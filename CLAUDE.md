@@ -134,6 +134,12 @@ Most `dash_*` staffing tables have a `quarter` column (`dash_demo_fol` is the ex
 | `/process` | Process Lookup | Search by selection process # or reference #; shows process detail card |
 | `/admin` | Data Ingestion | Trigger ingestion, view log history — not linked in nav, access directly by URL |
 
+## Staffing Dashboard — URL State
+- `?dept=` syncs the selected department filter; shareable link
+- `?tab=` syncs the active chart tab (`advertisements` | `inflow` | `outflow` | `mobility` | `demographics` | `priority`)
+- Page title shows "Staffing Dashboard — [Dept name]" when a department is filtered
+- Deep-links from Department Snapshot use both params (e.g. `/?dept=RCMP&tab=inflow`)
+
 ## Staffing Dashboard — KPI Summary Cards
 Shown at the top of the page, always visible regardless of active tab. Matches PSC's summary panel metrics:
 
@@ -222,15 +228,16 @@ Sub-selector with 5 views:
 - Search box with autocomplete dropdown (min 2 chars, contains match on both `selection_process_number` and `reference_number`)
 - Dropdown shows selection process number prominently with reference number in smaller text below
 - Selecting a result or pressing Enter triggers the process lookup
-- Empty skeleton state when no process selected
+- `car_chc_id` written to `?id=` URL param on load — shareable link; page boots pre-loaded when `?id=` present (backend `/advertisements/process` accepts `car_chc_id` param)
+- Empty skeleton state when no process selected (hidden when `?id=` is present)
 - Process card:
-  - Header: selection process number (primary) + reference number (secondary), position title, org/region/year, status badge
+  - Header: selection process number (primary) + reference number (secondary), position title, org/region/year, status badge; **"View on GC Jobs ↗"** and **"View full data ↗"** links below org line (View full data navigates to `/query?sql=SELECT * FROM raw_advertisements WHERE car_chc_id=...`)
   - Stats row: Applications, Screened In, Screened Out (if present) — with % screened-in rate
-  - Left column: Open Date, Close Date, Days Open, Ad Type, Audience, Program, City, Province, Tenure Sought (Indeterminate, Specified Term, Acting, Assignment, Deployment, Secondment — displayed as label only, no counts), GC Jobs link
-  - Right column: Classification chips, Funnel bars (Submitted → Screened In → Screened Out)
+  - Left column: Overview rows (Open Date, Close Date, Days Open, Ad Type, Audience, Program, City, Province, Tenure Sought) + Classifications chips
+  - Right column: **Application Status** bars (Submitted → Screened In → Screened Out) → **EE Applicants** (Women, Visible Minority, Indigenous, Persons w/ Disabilities; suppressed <5 shown as —) → **First Official Language** (Francophone, Anglophone) → **CAF Members** (participation count, not appointments)
 
 ## Data Explorer Page (`/query`)
-Renamed from "Query Table". Two modes toggled at top-right:
+Two modes toggled at top-right:
 
 **Standard mode** — column picker + filters against `raw_advertisements`:
 
@@ -257,18 +264,23 @@ Results table shows friendly column labels (e.g. "Fiscal Year", not "fiscal_year
 - Results table shows raw column names from the query
 - CSV export is client-side from the full in-memory result set
 - Visualize not available in advanced mode (schema is unknown)
+- **Pre-population**: switching from Standard → Advanced SQL generates a `SELECT` reflecting current column/filter state (only when editor is empty). A **"↺ Sync from standard"** button regenerates at any time.
+- **Deep-link**: page reads `?sql=` URL param on mount, switches to Advanced SQL mode and pre-populates the editor (used by Process Lookup "View full data" link)
 
 ## Department Snapshot Page (`/snapshot`)
 Executive summary for a specific department or PS Total. Department selector with autocomplete. `DepartmentOverview.tsx` (old page) still exists as a file but is no longer routed — `DeptSnapshot.tsx` is the active page.
 
+- **Page title** shows "Department Snapshot — [Dept name]" when a department is filtered
+- **URL state**: `?dept=` param syncs the selected department; shareable link
+- **Deep-link icons (↗)** on KPI cards and module cards link to the corresponding Staffing Dashboard tab with `?dept=&tab=` pre-set
 - **Headline block**: opinionated `getHeadline()` sentence (base + modifier pattern), status badge (Net inflow / Net outflow / Departures rising / Stable), FYTD period label, size tier badge, supporting context sentence, italic partial-year note when `q_count < 4`
 - **4 KPI cards**: Hiring (highlighted), Departures, Net Change (`NetCard` with colour-coded background), Internal Movement (% rate with tooltip icon)
   - All YoY comparisons are FYTD-normalized via `qCount`; "This year" and "PS average" labeled rows
-- **Chart**: "Hiring vs departures over time" line chart (all available years); source caveat note below
-- **Hiring composition**: stacked bar breakdown of latest year inflow by hire type
-- **Comparison table**: 6 rows — Hiring, Departures, Hiring YoY, Departures YoY, Internal movement rate (tooltip), Advertised appointment % (tooltip); peer column from size-tier benchmark query
+- **Chart**: "Hiring vs departures over time" line chart (all available years)
+- **Hiring composition**: stacked bar breakdown of latest year inflow by hire type; "What's driving hiring? ↗" links to Staffing Dashboard inflow tab
+- **Comparison table**: title "How does [Dept name] compare?"; 6 rows — Hiring, Departures, Hiring YoY, Departures YoY, Internal movement rate (tooltip), Advertised appointment % (tooltip); peer column from size-tier benchmark query. No colour coding — numbers speak for themselves.
 - **PSC oversight indicators** divider (italic subtitle: "Appointment integrity & employment equity"), then:
-  - **Advertised appointment rate** module (`HiringPipelineModule`): big %, progress bar, labeled rows, 3-yr table
+  - **Advertised appointment rate** module (`HiringPipelineModule`): big %, progress bar, 3-yr rate table, then separate "Advertised processes launched" section with total/internal/external 3-yr table (from `raw_advertisements`; different source than rate — shown in same card but separate tables)
   - **Internal movement rate** module (`MobilityDetailModule`): big %, progress bar, labeled rows, 3-yr table with cross-org transfers
   - **Employment equity in hiring** card (`EERepresentationModule`): 30px dept rate + PS avg (border-left separator), comparison bars (dept vs PS), amber insight callout with narrative text; prior years top-right; ~1 year data lag note
 - Data source: `GET /staffing/department-overview` (bundled endpoint); EE from `ee_snapshot` (3 years, binary self-identification only)
@@ -285,5 +297,4 @@ Executive summary for a specific department or PS Total. Department selector wit
 - Staffing Dashboard department filter is text-only (no autocomplete)
 - FSWEP application counts in `dash_advertisements` will self-correct once PSC republishes the source CSV
 - Consider snapshotting quarterly ingest data (append instead of truncate per quarter) to enable true same-period year-over-year comparisons in future
-- EE applicant breakdown columns (`women_submitted_sup`, `vismin_submitted_sup`, `indigenous_submitted_sup`, `pwd_submitted_sup`, `french_submitted_sup`, `english_submitted_sup`) exist in the CSV but are not yet ingested — useful for diversity analytics per process
 - `DepartmentOverview.tsx` is unused (route removed) — can be deleted when confirmed no longer needed
