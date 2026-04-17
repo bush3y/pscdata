@@ -365,11 +365,7 @@ export default function ProcessDetail() {
                   </a>
                 } />
               )}
-            </div>
-
-            {/* Right column */}
-            <div style={{ padding: '8px 28px 24px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '16px 0 4px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '24px 0 4px' }}>
                 Classifications
               </div>
               <div style={{ paddingTop: 10 }}>
@@ -378,24 +374,20 @@ export default function ProcessDetail() {
                   : <span style={{ fontSize: 13, color: '#9ca3af' }}>—</span>
                 }
               </div>
+            </div>
+
+            {/* Right column */}
+            <div style={{ padding: '8px 28px 24px' }}>
 
               {(submitted > 0 || screenedIn > 0) && (
                 <>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '24px 0 4px' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '16px 0 4px' }}>
                     Application Status
                   </div>
                   <div style={{ paddingTop: 12 }}>
-                    <FunnelBar label="Submitted"    value={submitted}   total={submitted} color="#1d3557" />
-                    <FunnelBar label="Screened In"  value={screenedIn}  total={submitted} color="#457b9d" />
+                    <FunnelBar label="Submitted"   value={submitted}  total={submitted} color="#1d3557" />
+                    <FunnelBar label="Screened In" value={screenedIn} total={submitted} color="#457b9d" />
                     {screenedOut > 0 && <FunnelBar label="Screened Out" value={screenedOut} total={submitted} color="#e63946" />}
-                    {cafIn != null && cafIn > 0 && (
-                      <div style={{ marginTop: 4 }}>
-                        <FunnelBar label="CAF Members" value={cafIn} total={submitted} color="#6b7280" />
-                        <p style={{ margin: '-8px 0 8px', fontSize: 11, color: '#9ca3af', lineHeight: 1.4 }}>
-                          Canadian Armed Forces members who participated in this process. Not a count of appointments.
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </>
               )}
@@ -447,6 +439,20 @@ export default function ProcessDetail() {
                     ))}
                     <p style={{ margin: '8px 0 0', fontSize: 11, color: '#9ca3af', lineHeight: 1.4 }}>
                       Applicants' first official language as declared. Suppressed (&lt;5) shown as —.
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {cafIn != null && cafIn > 0 && (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.07em', padding: '24px 0 4px' }}>
+                    CAF Members
+                  </div>
+                  <div style={{ paddingTop: 12 }}>
+                    <FunnelBar label="CAF Members" value={cafIn} total={submitted} color="#6b7280" />
+                    <p style={{ margin: '-8px 0 8px', fontSize: 11, color: '#9ca3af', lineHeight: 1.4 }}>
+                      Canadian Armed Forces members who participated in this process. Not a count of appointments.
                     </p>
                   </div>
                 </>
