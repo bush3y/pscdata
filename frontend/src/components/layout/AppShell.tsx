@@ -47,14 +47,16 @@ export default function AppShell() {
             end={link.end}
             style={({ isActive }) => ({
               display: 'block',
-              padding: isMobile ? '14px 24px' : '10px 20px',
-              color: isActive ? '#1d3557' : '#495057',
-              background: isActive ? '#dce8f5' : 'transparent',
+              padding: isMobile ? '13px 24px' : '9px 20px',
+              color: isActive ? '#1d3557' : '#6b7280',
+              background: isActive ? '#eef4fb' : 'transparent',
               textDecoration: 'none',
               fontWeight: isActive ? 600 : 400,
-              fontSize: isMobile ? 15 : 14,
+              fontSize: isMobile ? 14 : 13,
+              letterSpacing: '-0.01em',
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
               borderLeft: isActive ? '3px solid #1d3557' : '3px solid transparent',
-              transition: 'background 0.15s',
+              transition: 'background 0.15s, color 0.15s',
             })}
           >
             {t(link.key)}
@@ -96,10 +98,16 @@ export default function AppShell() {
               )}
             </button>
           )}
-          <h1 style={{ fontSize: isMobile ? 15 : 18, fontWeight: 700, letterSpacing: '0.01em', margin: 0 }}>
+          <h1 style={{
+            fontSize: isMobile ? 15 : 17,
+            fontWeight: 700,
+            letterSpacing: '-0.02em',
+            margin: 0,
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          }}>
             PSC Data Explorer
             {!isMobile && (
-              <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.75, display: 'block' }}>
+              <span style={{ fontSize: 11, fontWeight: 400, letterSpacing: '0.01em', opacity: 0.6, display: 'block', marginTop: 2 }}>
                 Public Service Commission of Canada
               </span>
             )}
@@ -148,7 +156,7 @@ export default function AppShell() {
             display: 'flex', alignItems: 'center', padding: '0 20px',
             flexShrink: 0,
           }}>
-            <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>Navigation</span>
+            <span style={{ color: '#fff', fontWeight: 700, fontSize: 13, letterSpacing: '-0.01em', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>Navigation</span>
           </div>
           <nav aria-label="Main navigation" style={{ paddingTop: 8 }}>{navLinks}</nav>
         </aside>
