@@ -105,7 +105,7 @@ export default function AppShell() {
             margin: 0,
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
           }}>
-            PSC Data Explorer
+            GC Staffing Insights Portal
             {!isMobile && (
               <span style={{ fontSize: 11, fontWeight: 400, letterSpacing: '0.01em', opacity: 0.6, display: 'block', marginTop: 2 }}>
                 Public Service Commission of Canada
