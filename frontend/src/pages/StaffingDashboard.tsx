@@ -1400,7 +1400,7 @@ export default function StaffingDashboard() {
         Staffing Dashboard{department ? <span style={{ color: '#6b7280', fontWeight: 400 }}> — {department}</span> : ''}
       </h2>
       <p style={{ margin: '0 0 20px', color: '#6b7280', fontSize: 13 }}>
-        Workforce activity across the federal public service · PSC open data
+        Workforce activity across the federal public service
       </p>
 
       {/* KPI summary cards */}
