@@ -338,7 +338,7 @@ export default function ProcessDetail() {
                   {fmt(process.position_title_e)}
                 </h3>
                 <div style={{ fontSize: 13.5, color: '#6b7280' }}>
-                  {fmt(process.organization_e)}&ensp;·&ensp;{fmt(process.administrator_region_e)}&ensp;·&ensp;{fmt(process.fiscal_year)}
+                  {fmt(process.organization_e)}&ensp;·&ensp;{fmt(process.fiscal_year)}
                 </div>
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
                   {advUrl && (
