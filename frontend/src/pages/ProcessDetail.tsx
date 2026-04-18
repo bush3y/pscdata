@@ -224,7 +224,7 @@ export default function ProcessDetail() {
           Process Lookup
         </h2>
         <p style={{ margin: 0, color: '#6b7280', fontSize: 13 }}>
-          Search by selection process number (e.g. <span style={{ fontFamily: 'monospace' }}>22-DIS-ON-EA-423055</span>) or internal reference number. Requires re-ingestion to populate selection process numbers.
+          Search by selection process number (e.g. <span style={{ fontFamily: 'monospace' }}>22-DIS-ON-EA-423055</span>) or internal reference number.
         </p>
       </div>
 
