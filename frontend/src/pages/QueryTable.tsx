@@ -264,10 +264,15 @@ export default function QueryTable() {
 
   const [searchParams] = useSearchParams();
 
-  // Advanced SQL mode
-  const [advancedMode, setAdvancedMode] = useState(() => !!searchParams.get('sql'));
+  const deepLinkCarId = searchParams.get('car_chc_id');
+
+  // Advanced SQL mode — active when ?sql= present but not when deep-linking by car_chc_id
+  const [advancedMode, setAdvancedMode] = useState(() => !!searchParams.get('sql') && !deepLinkCarId);
   const [sqlText, setSqlText] = useState(() => searchParams.get('sql') ?? '');
-  const [advancedRunSql, setAdvancedRunSql] = useState<{ sql: string; limit: number } | null>(null);
+  // Auto-run when deep-linked by car_chc_id (stays in Standard mode visually)
+  const [advancedRunSql, setAdvancedRunSql] = useState<{ sql: string; limit: number } | null>(() =>
+    deepLinkCarId ? { sql: `SELECT * FROM raw_advertisements WHERE car_chc_id = ${Number(deepLinkCarId)}`, limit: 10 } : null
+  );
 
   const { data: filterOptions } = useFilterOptions();
 
@@ -405,12 +410,14 @@ export default function QueryTable() {
   const xColLabel = ALL_COLUMNS.find(c => c.key === viz.xCol)?.label ?? viz.xCol;
   const hasFilters = runConfig ? Object.entries(runConfig.filters).some(([, v]) => v.length > 0) : false;
 
-  const activeData        = advancedMode ? (advData?.rows ?? null)  : (data ?? null);
-  const activeLoading     = advancedMode ? advLoading               : isLoading;
-  const activeIsError     = advancedMode ? advIsError               : isError;
-  const activeColumns     = advancedMode ? (advData?.columns)       : loadedCols;
-  const activeRowCount    = advancedMode ? advData?.row_count       : data?.length;
-  const activeHasRun      = advancedMode ? advancedRunSql !== null  : runConfig !== null;
+  // Use advData when in Advanced SQL mode OR when deep-linked by car_chc_id (standard mode, no runConfig)
+  const useAdvData        = advancedMode || (advancedRunSql !== null && runConfig === null);
+  const activeData        = useAdvData ? (advData?.rows ?? null)  : (data ?? null);
+  const activeLoading     = useAdvData ? advLoading               : isLoading;
+  const activeIsError     = useAdvData ? advIsError               : isError;
+  const activeColumns     = useAdvData ? (advData?.columns)       : loadedCols;
+  const activeRowCount    = useAdvData ? advData?.row_count       : data?.length;
+  const activeHasRun      = advancedMode ? advancedRunSql !== null : (runConfig !== null || advancedRunSql !== null);
 
   return (
     <div>
@@ -642,8 +649,8 @@ export default function QueryTable() {
         <>
           <DataTable data={activeData} columns={activeColumns} pageSize={50} />
 
-          {/* Visualize (Standard mode only — advanced results have unknown schema) */}
-          {!advancedMode && (
+          {/* Visualize (Standard mode only, and only when a standard query has been run) */}
+          {!advancedMode && runConfig !== null && (
             <div style={{ marginTop: 20 }}>
               <button
                 style={{ ...btnStyle('secondary'), marginBottom: 12 }}

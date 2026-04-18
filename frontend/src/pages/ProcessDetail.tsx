@@ -349,7 +349,7 @@ export default function ProcessDetail() {
                   )}
                   {process.car_chc_id != null && (
                     <Link
-                      to={`/query?sql=${encodeURIComponent(`SELECT *\nFROM raw_advertisements\nWHERE car_chc_id = ${process.car_chc_id}`)}`}
+                      to={`/query?car_chc_id=${process.car_chc_id}`}
                       style={{ fontSize: 12.5, color: '#6b7280', textDecoration: 'none', fontWeight: 500 }}
                     >
                       View full data ↗
