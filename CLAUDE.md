@@ -1,7 +1,7 @@
-# PSC Data Explorer — Project Notes
+# GC Staffing Insights Portal — Project Notes
 
 ## What This Is
-A bilingual (EN/FR) web platform for exploring Public Service Commission of Canada open data. No login. Deployable via Docker on Digital Ocean.
+A bilingual (EN/FR) web platform for exploring Public Service Commission of Canada staffing data. No login. Deployable via Docker on Digital Ocean.
 
 ## Stack
 - **Backend**: FastAPI + DuckDB + Pandas, Python 3.12
