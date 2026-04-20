@@ -43,6 +43,7 @@ interface SnapshotData {
     outflow: { fiscal_year: string; total: number | null }[];
   };
   inflow_by_type:  { fiscal_year: string; hire_e: string; count: number | null }[];
+  ps_inflow_by_type_latest: { hire_e: string; count: number | null }[];
   mobility_trend:  { fiscal_year: string; mob_type_e: string; count: number | null }[];
   adv_by_type:     { fiscal_year: string; adv_e: string; count: number | null }[];
   adv_processes:   { fiscal_year: string; total: number; internal_only: number; external: number }[];
@@ -262,13 +263,29 @@ const HIRE_LABEL_SHORT: Record<string, string> = {
   'Term from other organization': 'Term other org',
 };
 
-function HiringComposition({ inflow_by_type, dashTo }: { inflow_by_type: { fiscal_year: string; hire_e: string; count: number | null }[]; dashTo?: string }) {
+const TEMP_HIRE_TYPES = new Set(['New Term', 'Casual', 'Student', 'Term from other organization']);
+
+function tempPct(rows: { hire_e: string; count: number | null }[]): number | null {
+  const total = rows.reduce((s, r) => s + (r.count ?? 0), 0);
+  if (!total) return null;
+  const temp = rows.filter(r => TEMP_HIRE_TYPES.has(r.hire_e)).reduce((s, r) => s + (r.count ?? 0), 0);
+  return Math.round(temp / total * 100);
+}
+
+function HiringComposition({ inflow_by_type, ps_inflow_by_type_latest, dashTo }: {
+  inflow_by_type: { fiscal_year: string; hire_e: string; count: number | null }[];
+  ps_inflow_by_type_latest: { hire_e: string; count: number | null }[];
+  dashTo?: string;
+}) {
   if (!inflow_by_type.length) return null;
 
   const latestFy = inflow_by_type.reduce((max, r) => r.fiscal_year > max ? r.fiscal_year : max, '');
   const latestRows = inflow_by_type.filter(r => r.fiscal_year === latestFy);
   const total = latestRows.reduce((s, r) => s + (r.count ?? 0), 0);
   if (total === 0) return null;
+
+  const deptTemp = tempPct(latestRows);
+  const psTemp   = tempPct(ps_inflow_by_type_latest);
 
   // Sort by count desc, keep top 6
   const sorted = [...latestRows]
@@ -324,6 +341,15 @@ function HiringComposition({ inflow_by_type, dashTo }: { inflow_by_type: { fisca
           );
         })}
       </div>
+
+      {deptTemp !== null && (
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #f3f4f6', fontSize: 12, color: '#6b7280' }}>
+          <span style={{ fontWeight: 600, color: '#374151' }}>{deptTemp}%</span> of new hires were temporary (term, casual, or student)
+          {psTemp !== null && (
+            <span> · PS avg: <span style={{ fontWeight: 600, color: '#374151' }}>{psTemp}%</span></span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1162,7 +1188,7 @@ export default function DeptSnapshot() {
           {/* ── Hiring composition ────────────────────────────────────────── */}
           {data.inflow_by_type?.length > 0 && (
             <div style={{ marginBottom: 28 }}>
-              <HiringComposition inflow_by_type={data.inflow_by_type} dashTo={dashLink(selectedDept, 'inflow')} />
+              <HiringComposition inflow_by_type={data.inflow_by_type} ps_inflow_by_type_latest={data.ps_inflow_by_type_latest ?? []} dashTo={dashLink(selectedDept, 'inflow')} />
             </div>
           )}
 

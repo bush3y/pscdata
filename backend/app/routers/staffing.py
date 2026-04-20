@@ -537,6 +537,14 @@ async def get_department_overview(department: str | None = None) -> dict:
         [dept],
     )
 
+    # ── PS Total hire type breakdown (latest year only, for temp % comparison) ─
+    ps_inflow_by_type_latest = q(
+        "SELECT hire_e, SUM(count) AS count FROM dash_inflow "
+        "WHERE department_e = 'Public Service - Total' "
+        "  AND fiscal_year = (SELECT MAX(fiscal_year) FROM dash_inflow WHERE department_e = 'Public Service - Total') "
+        "GROUP BY hire_e",
+    )
+
     # ── Internal mobility trend (all types, all years) ───────────────────────
     mobility_trend = q(
         "SELECT fiscal_year, mob_type_e, SUM(count) AS count "
@@ -727,6 +735,7 @@ async def get_department_overview(department: str | None = None) -> dict:
         "tbs_headcount": tbs_headcount,
         "workforce_trend":   {"inflow": inflow_trend, "outflow": outflow_trend},
         "inflow_by_type":    inflow_by_type,
+        "ps_inflow_by_type_latest": ps_inflow_by_type_latest,
         "mobility_trend":    mobility_trend,
         "applications_trend": apps_trend,
         "outflow_by_reason": outflow_by_reason,
