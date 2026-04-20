@@ -1,5 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import client from '../api/client';
 import {
   useStaffingInflow,
   useStaffingOutflow,
@@ -21,6 +23,86 @@ import {
 import ChartCard from '../components/charts/ChartCard';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import MultiSelectCombobox from '../components/common/MultiSelectCombobox';
+
+// ── Department autocomplete ─────────────────────────────────────────────────
+
+function DeptAutocomplete({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [input, setInput] = useState(value);
+  const [open, setOpen]   = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef  = useRef<HTMLUListElement>(null);
+
+  const { data: departments = [] } = useQuery<string[]>({
+    queryKey: ['staffing-departments'],
+    queryFn: () => client.get('/staffing/departments').then(r => r.data),
+    staleTime: 5 * 60_000,
+  });
+
+  const filtered = useMemo(() => {
+    const q = input.trim().toLowerCase();
+    return q ? departments.filter(d => d.toLowerCase().includes(q)) : departments;
+  }, [input, departments]);
+
+  useEffect(() => { setInput(value); }, [value]);
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (!inputRef.current?.contains(e.target as Node) && !listRef.current?.contains(e.target as Node))
+        setOpen(false);
+    }
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, []);
+
+  function select(dept: string) {
+    setInput(dept);
+    onChange(dept);
+    setOpen(false);
+  }
+
+  return (
+    <div style={{ position: 'relative', flex: 1 }}>
+      <input
+        ref={inputRef}
+        value={input}
+        onChange={e => { setInput(e.target.value); onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={e => { if (e.key === 'Escape') setOpen(false); if (e.key === 'Enter' && filtered.length === 1) select(filtered[0]); }}
+        placeholder="Type a department name…"
+        style={{
+          width: '100%', padding: '6px 30px 6px 10px', fontSize: 13,
+          border: '1px solid #ced4da', borderRadius: 4,
+          boxSizing: 'border-box', outline: 'none', background: '#fff', color: '#212529',
+        }}
+      />
+      {input && (
+        <button
+          onClick={() => { setInput(''); onChange(''); setOpen(false); }}
+          style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 16, padding: 0, lineHeight: 1 }}
+        >×</button>
+      )}
+      {open && filtered.length > 0 && (
+        <ul ref={listRef} style={{
+          position: 'absolute', top: 'calc(100% + 2px)', left: 0, right: 0,
+          margin: 0, padding: '4px 0', listStyle: 'none',
+          background: '#fff', border: '1px solid #ced4da', borderRadius: 4,
+          zIndex: 200, boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
+          maxHeight: 240, overflowY: 'auto',
+        }}>
+          {filtered.slice(0, 80).map(opt => (
+            <li
+              key={opt}
+              onMouseDown={() => select(opt)}
+              style={{ padding: '7px 12px', fontSize: 13, cursor: 'pointer', color: '#374151' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#f3f8ff')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >{opt}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -1442,13 +1524,7 @@ export default function StaffingDashboard() {
               >{opt.label}</button>
             ))}
           </div>
-          <input
-            type="text"
-            value={department}
-            onChange={e => setDepartment(e.target.value)}
-            placeholder="Or type a department name…"
-            style={inputStyle}
-          />
+          <DeptAutocomplete value={department} onChange={setDepartment} />
         </div>
       </div>
 
