@@ -262,15 +262,6 @@ const labelStyle: React.CSSProperties = {
   color: '#6c757d',
 };
 
-const inputStyle: React.CSSProperties = {
-  padding: '5px 10px',
-  border: '1px solid #ced4da',
-  borderRadius: 4,
-  fontSize: 13,
-  width: '100%',
-  boxSizing: 'border-box',
-};
-
 const tabBarStyle: React.CSSProperties = {
   display: 'flex',
   gap: 0,
