@@ -53,7 +53,7 @@ export default function ChartCard({ title, subtitle, children, tableData, tableC
     <div style={cardStyle}>
       <h3 style={titleStyle}>{title}</h3>
       {subtitle && <p style={subtitleStyle}>{subtitle}</p>}
-      {children}
+      <div role="img" aria-label={title}>{children}</div>
       {tableData && tableData.length > 0 && (
         <>
           <button

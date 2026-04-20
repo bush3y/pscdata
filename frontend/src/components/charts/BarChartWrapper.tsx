@@ -20,14 +20,16 @@ interface BarChartWrapperProps {
   xKey: string;
   bars: BarDef[];
   yLabel?: string;
+  ariaLabel?: string;
 }
 
-export default function BarChartWrapper({ data, xKey, bars, yLabel }: BarChartWrapperProps) {
+export default function BarChartWrapper({ data, xKey, bars, yLabel, ariaLabel }: BarChartWrapperProps) {
   if (!data || data.length === 0) {
     return <p style={{ color: '#6c757d', fontSize: 13 }}>No data to display.</p>;
   }
 
   return (
+    <div role="img" aria-label={ariaLabel ?? bars.map(b => b.name).join(', ')}>
     <ResponsiveContainer width="100%" height={320}>
       <BarChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 60 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
@@ -49,5 +51,6 @@ export default function BarChartWrapper({ data, xKey, bars, yLabel }: BarChartWr
         ))}
       </BarChart>
     </ResponsiveContainer>
+    </div>
   );
 }

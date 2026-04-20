@@ -1144,6 +1144,7 @@ export default function DeptSnapshot() {
           <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '20px 24px', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 28 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 2 }}>Hiring vs departures over time</div>
             <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>All available years · {displayName}</div>
+            <div role="img" aria-label="Hiring vs departures over time">
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={flowTrend} margin={{ top: 5, right: 20, left: 10, bottom: 50 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
@@ -1155,6 +1156,7 @@ export default function DeptSnapshot() {
                 <Line type="monotone" dataKey="Departures" stroke="#e63946" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
               </LineChart>
             </ResponsiveContainer>
+            </div>
           </div>
 
           {/* ── Hiring composition ────────────────────────────────────────── */}

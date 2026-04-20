@@ -21,6 +21,7 @@ interface TimeSeriesChartProps {
   xKey?: string;
   yLabel?: string;
   height?: number;
+  ariaLabel?: string;
 }
 
 export default function TimeSeriesChart({
@@ -29,12 +30,14 @@ export default function TimeSeriesChart({
   xKey = 'fiscal_year',
   yLabel,
   height = 300,
+  ariaLabel,
 }: TimeSeriesChartProps) {
   if (!data || data.length === 0) {
     return <p style={{ color: '#6c757d', fontSize: 13 }}>No data to display.</p>;
   }
 
   return (
+    <div role="img" aria-label={ariaLabel ?? series.map(s => s.name).join(', ')}>
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
@@ -59,5 +62,6 @@ export default function TimeSeriesChart({
         ))}
       </LineChart>
     </ResponsiveContainer>
+    </div>
   );
 }
