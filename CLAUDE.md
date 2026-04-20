@@ -292,9 +292,21 @@ Executive summary for a specific department or PS Total. Department selector wit
 - Colour palette: primary `#1d3557`, text `#111827`, muted `#6b7280`, border `#e5e7eb`
 
 ## What's Next (not started)
-- Bilingual support is wired (i18n) but translations are minimal; FR nav labels need updating to reflect removed Department Overview and renamed Department Snapshot
-- No production deployment yet (Digital Ocean droplet)
-- Staffing Dashboard department filter is text-only (no autocomplete)
 - FSWEP application counts in `dash_advertisements` will self-correct once PSC republishes the source CSV
 - Consider snapshotting quarterly ingest data (append instead of truncate per quarter) to enable true same-period year-over-year comparisons in future
 - `DepartmentOverview.tsx` is unused (route removed) — can be deleted when confirmed no longer needed
+
+### Enhancements backlog
+- **Copy-to-clipboard** on selection process and reference numbers (Process Lookup)
+- **Partial year legend note** explaining dashed line / dimmed bar treatment (Staffing Dashboard)
+- **"View in Department Snapshot" link** from dashboard when a department is filtered (Staffing Dashboard → Snapshot)
+- **Sparklines / mini-trend indicators** on KPI cards (Staffing Dashboard)
+- **Hiring composition trend view** — show how hire-type mix has shifted over time, not just latest year (Department Snapshot)
+- **Y-axis label** on Hiring vs Departures chart (Department Snapshot)
+- **Column search** in Data Explorer standard mode column picker (~50 columns, gets unwieldy)
+- **Inline % rate** on Process Lookup funnel bars (e.g. "80% screened in")
+- **Global search** to jump directly to a department or process number from anywhere
+- **Export for KPI cards / snapshot summaries** (users currently screenshot and re-enter manually)
+
+### Parking lot
+- **FR translations** — i18n wiring exists but strings are minimal; needs bilingual GC domain reviewer (PSC terminology has specific official FR equivalents)
