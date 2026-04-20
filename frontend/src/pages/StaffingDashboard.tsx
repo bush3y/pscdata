@@ -65,9 +65,10 @@ function DeptAutocomplete({ value, onChange }: { value: string; onChange: (v: st
       <input
         ref={inputRef}
         value={input}
-        onChange={e => { setInput(e.target.value); onChange(e.target.value); setOpen(true); }}
+        onChange={e => { setInput(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
-        onKeyDown={e => { if (e.key === 'Escape') setOpen(false); if (e.key === 'Enter' && filtered.length === 1) select(filtered[0]); }}
+        onBlur={() => { setInput(value); }}
+        onKeyDown={e => { if (e.key === 'Escape') { setInput(value); setOpen(false); } if (e.key === 'Enter' && filtered.length === 1) select(filtered[0]); }}
         placeholder="Type a department name…"
         style={{
           width: '100%', padding: '6px 30px 6px 10px', fontSize: 13,
