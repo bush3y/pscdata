@@ -344,9 +344,9 @@ function HiringComposition({ inflow_by_type, ps_inflow_by_type_latest, dashTo }:
 
       {deptTemp !== null && (
         <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #f3f4f6', fontSize: 12, color: '#6b7280' }}>
-          <span style={{ fontWeight: 600, color: '#374151' }}>{deptTemp}%</span> of new hires were temporary (term, casual, or student)
+          <span style={{ fontWeight: 600, color: '#374151' }}>{deptTemp}%</span> of hires were temporary
           {psTemp !== null && (
-            <span> · PS avg: <span style={{ fontWeight: 600, color: '#374151' }}>{psTemp}%</span></span>
+            <span>, compared to <span style={{ fontWeight: 600, color: '#374151' }}>{psTemp}%</span> across the public service</span>
           )}
         </div>
       )}
