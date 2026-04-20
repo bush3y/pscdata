@@ -325,8 +325,13 @@ function AdvertisementsTab({ filters }: TabProps) {
 
   const dimLabel = availDims.find(d => d.key === activeDim)?.label ?? activeDim;
   const metricLabel = ADV_METRICS.find(m => m.key === metric)?.label ?? metric;
-  // raw_advertisements has no org-size aggregate rows — department filter intentionally omitted
-  const rawFilters = { fiscal_year: filters.fiscal_year };
+  const ORG_SIZE_AVGS = ['Micro - Average', 'Small - Average', 'Medium - Average', 'Large - Average'];
+  const isOrgSizeAvg = ORG_SIZE_AVGS.includes(filters.department);
+  // raw_advertisements uses organization_e — pass real dept names; org-size averages don't exist there
+  const rawFilters = {
+    fiscal_year: filters.fiscal_year,
+    ...(filters.department && !isOrgSizeAvg ? { organization: [filters.department] } : {}),
+  };
   // dash_advertisements has org-size rows (Micro/Small/Medium/Large averages) — pass department
   const dashFilters = { fiscal_year: filters.fiscal_year, department: filters.department };
 
@@ -424,7 +429,7 @@ function AdvertisementsTab({ filters }: TabProps) {
           {ADV_METRIC_DESCRIPTIONS[metric]}
         </p>
       )}
-      {filters.department && !isDash && (
+      {isOrgSizeAvg && !isDash && (
         <p style={{ fontSize: 11.5, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 4, padding: '6px 10px', margin: '0 0 14px', maxWidth: 600 }}>
           Organization size filters apply to the <strong>Applications</strong> metric only — Advertisements and Screened In are sourced from raw postings which don't have org-size aggregates.
         </p>
