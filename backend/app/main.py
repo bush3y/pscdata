@@ -36,13 +36,24 @@ _DATASET_TITLES = {
         "frequency": "Quarterly",
         "source_url": "https://open.canada.ca/data/en/dataset/26ffad36-ca9b-431c-8f6d-a6df02665e2c",
     },
+    "snps": {
+        "title_en": "Staffing and Non-Partisanship Survey (2021, 2023, 2025)",
+        "title_fr": "Sondage sur la dotation et l'impartialité (2021, 2023, 2025)",
+        "frequency": "Biennial",
+        "source_url": "https://open.canada.ca/data/en/dataset/8766bf91-d14c-423b-a5d1-ac47f5b4dd22",
+    },
 }
 
 
 async def _seed_registry() -> None:
     """Upsert known datasets into dataset_registry on startup."""
+    # Build a flat key → (dataset_id, meta) map across all dataset sources
+    all_datasets: dict[str, str] = {**settings.DATASET_IDS}
+    # SNPS uses the 2025 dataset ID as the canonical registry entry
+    all_datasets["snps"] = settings.SNPS_DATASET_IDS[2025]
+
     async with get_write_conn() as conn:
-        for key, dataset_id in settings.DATASET_IDS.items():
+        for key, dataset_id in all_datasets.items():
             meta = _DATASET_TITLES.get(key, {})
             conn.execute(
                 """
@@ -65,7 +76,7 @@ async def _seed_registry() -> None:
                     meta.get("source_url"),
                 ],
             )
-    logger.info("Dataset registry seeded with %d entries.", len(settings.DATASET_IDS))
+    logger.info("Dataset registry seeded with %d entries.", len(all_datasets))
 
 
 async def _cleanup_stale_ingest_logs() -> None:

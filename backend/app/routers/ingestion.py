@@ -32,8 +32,10 @@ async def _run_ingestion(dataset_keys: list[str] | str) -> None:
             results = await ingestor.ingest_all()
         else:
             key_method_map = {
-                "advertisements": ingestor.ingest_advertisements,
+                "advertisements":    ingestor.ingest_advertisements,
                 "staffing_dashboard": ingestor.ingest_staffing_dashboard,
+                "tbs_population":    ingestor.ingest_tbs_population,
+                "snps":              ingestor.ingest_snps,
             }
             results: list[IngestResult] = []
             for key in dataset_keys:
