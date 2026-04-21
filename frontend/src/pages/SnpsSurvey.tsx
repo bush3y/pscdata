@@ -374,13 +374,18 @@ export default function SnpsSurvey() {
   const latestYear = years.length ? Math.max(...years) : null;
   const viewYear = selectedYear ?? latestYear ?? undefined;
 
-  const { data: questions = [] } = useSnpsQuestions(latestYear ?? undefined);
+  // Question list tracks the selected year so it only shows questions available for that year
+  const { data: questions = [] } = useSnpsQuestions(viewYear);
   const { data: responses = [], isLoading: loadingResponses } = useSnpsResponses(
     selectedQuestion, selectedDept, viewYear,
   );
   const { data: trend = [] } = useSnpsTrend(selectedQuestion, selectedDept);
 
+  // Clear selected question if it doesn't exist in the newly selected year
   const questionMeta = questions.find(q => q.question === selectedQuestion);
+  useEffect(() => {
+    if (questions.length > 0 && selectedQuestion && !questionMeta) setSelectedQuestion(null);
+  }, [questions, selectedQuestion, questionMeta]);
 
   return (
     <div>
