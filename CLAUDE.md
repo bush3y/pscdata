@@ -312,3 +312,4 @@ Executive summary for a specific department or PS Total. Department selector wit
 
 ### Parking lot
 - **FR translations** — i18n wiring exists but strings are minimal; needs bilingual GC domain reviewer (PSC terminology has specific official FR equivalents)
+- **SNPS demographic breakdown CSVs** (snps02–snps12, one per demographic dimension) — not yet ingested. These use the demographic self-identification question codes (ABM_*, GND_*, etc.) as segmentation variables, not as browseable questions. Future use cases: (1) SNPS segment explorer — filter any survey question by age/EE group/region/tenure etc.; (2) cross-tabulation with staffing outcomes on Department Snapshot (e.g. "how do EE groups rate their hiring experience?"). Schema would add a `breakdown_type` + `breakdown_value_e/f` to `snps_responses` or a separate `snps_responses_demo` table.
