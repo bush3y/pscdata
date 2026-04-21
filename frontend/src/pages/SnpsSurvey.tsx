@@ -1,10 +1,8 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, LineChart, Line,
 } from 'recharts';
-import client from '../api/client';
 import {
   PS_TOTAL,
   useSnpsYears,
