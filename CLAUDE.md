@@ -139,6 +139,7 @@ Most `dash_*` staffing tables have a `quarter` column (`dash_demo_fol` is the ex
 - `?tab=` syncs the active chart tab (`advertisements` | `inflow` | `outflow` | `mobility` | `demographics` | `priority`)
 - Page title shows "Staffing Dashboard — [Dept name]" when a department is filtered
 - Deep-links from Department Snapshot use both params (e.g. `/?dept=RCMP&tab=inflow`)
+- **Department selector**: quick-select buttons (PS Total, Micro/Small/Medium/Large avg) + `DeptAutocomplete` text input. Autocomplete filters the dropdown locally while typing but only commits to URL state on selection — does NOT fire onChange on every keystroke (that caused charts to re-query with partial text). Department names come from `GET /staffing/departments` (PSC names from `dash_inflow`, excludes "Public Service - Total").
 
 ## Staffing Dashboard — KPI Summary Cards
 Shown at the top of the page, always visible regardless of active tab. Matches PSC's summary panel metrics:
@@ -170,6 +171,7 @@ Each tab shows a plain-language description of what is being visualized and any 
   - Advertisements, Screened In → `raw_advertisements`; dimensions: Program, Ad Type, Region, Classification, Status
   - Applications → `dash_advertisements` via `GET /staffing/adv-aggregate`; dimensions: Program, Days to Close
 - Charts: time-series line (with multi-line breakdown toggle) + stacked bar mix (with 100% toggle)
+- **Department filter**: when a real department is selected, Advertisements and Screened In pass it as `organization` to `raw_advertisements`. Org-size averages (Micro/Small/Medium/Large avg) are skipped for raw queries since those aggregates don't exist in `raw_advertisements` — a warning note appears in that case.
 
 ### Inflow / Outflow / Internal Mobility Tabs
 All use the shared `TrendMixCharts` component:
@@ -277,7 +279,7 @@ Executive summary for a specific department or PS Total. Department selector wit
 - **4 KPI cards**: Hiring (highlighted), Departures, Net Change (`NetCard` with colour-coded background), Internal Movement (% rate with tooltip icon)
   - All YoY comparisons are FYTD-normalized via `qCount`; "This year" and "PS average" labeled rows
 - **Chart**: "Hiring vs departures over time" line chart (all available years)
-- **Hiring composition**: stacked bar breakdown of latest year inflow by hire type; "What's driving hiring? ↗" links to Staffing Dashboard inflow tab
+- **Hiring composition**: stacked bar breakdown of latest year inflow by hire type; "What's driving hiring? ↗" links to Staffing Dashboard inflow tab. Summary line below bars: "X% of hires were temporary, compared to Y% across the public service" — temporary = New Term + Casual + Student + Term from other org. PS comparison comes from `ps_inflow_by_type_latest` in the bundled endpoint (latest year PS Total hire type counts).
 - **Comparison table**: title "How does [Dept name] compare?"; 6 rows — Hiring, Departures, Hiring YoY, Departures YoY, Internal movement rate (tooltip), Advertised appointment % (tooltip); peer column from size-tier benchmark query. No colour coding — numbers speak for themselves.
 - **PSC oversight indicators** divider (italic subtitle: "Appointment integrity & employment equity"), then:
   - **Advertised appointment rate** module (`HiringPipelineModule`): big %, progress bar, 3-yr rate table, then separate "Advertised processes launched" section with total/internal/external 3-yr table (from `raw_advertisements`; different source than rate — shown in same card but separate tables)
