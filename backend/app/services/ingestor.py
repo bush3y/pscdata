@@ -389,19 +389,20 @@ class DataIngestor:
                 resources = await self._ckan.list_csv_resources(ckan_id)
 
                 for res in resources:
-                    name_lower = res["name"].lower()
+                    # Match against both name and URL — CKAN resource names vary but URL always has filename
+                    check = (res["name"] + " " + res["url"]).lower()
 
                     # Match only the three CSVs we need; skip docs and demographic breakdowns
-                    if re.search(r"snps.?01", name_lower):
+                    if re.search(r"snps.?01", check):
                         target_table = "snps_responses"
-                    elif re.search(r"snps.?13", name_lower):
+                    elif re.search(r"snps.?13", check):
                         target_table = "snps_response_profile"
-                    elif re.search(r"snps.?14", name_lower):
+                    elif re.search(r"snps.?14", check):
                         target_table = "snps_questions"
                     else:
                         continue
 
-                    if any(ext in name_lower for ext in (".docx", ".html", ".xlsx")):
+                    if any(ext in check for ext in (".docx", ".html", ".xlsx")):
                         continue
 
                     log_id = _log_id()
