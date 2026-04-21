@@ -5,10 +5,10 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import type { IngestLog } from '../types';
 
 const DATASETS = [
-  { key: 'advertisements', title: 'Public Service Staffing Advertisements' },
+  { key: 'advertisements',    title: 'Public Service Staffing Advertisements' },
   { key: 'staffing_dashboard', title: 'Staffing Dashboard' },
-  { key: 'applications', title: 'Applications by Recruitment Program' },
-  { key: 'hiring_activities', title: 'PSEA Hiring Activities' },
+  { key: 'tbs_population',    title: 'TBS Federal Public Service Statistics' },
+  { key: 'snps',              title: 'Staffing and Non-Partisanship Survey (2021, 2023, 2025)' },
 ];
 
 const statusBadge = (status: string): React.CSSProperties => {
