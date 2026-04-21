@@ -127,14 +127,31 @@ function DeptSelector({ value, onChange }: { value: string | null; onChange: (v:
   );
 }
 
+// ── Question type detection ───────────────────────────────────────────────────
+
+const POSITIVE_KEYS = new Set(['To a great extent', 'To a moderate extent', 'Yes']);
+const CATEGORICAL_COLORS = ['#1d3557','#2a9d8f','#e9c46a','#f4a261','#e76f51','#457b9d','#a8dadc','#6d6875'];
+
+type QuestionType = 'likert' | 'yesno' | 'categorical';
+
+function detectType(vals: string[]): QuestionType {
+  const likertMatches = LIKERT_ORDER.filter(v => vals.includes(v));
+  if (likertMatches.length >= 3) return 'likert';
+  if (vals.includes('Yes') || vals.includes('No')) return 'yesno';
+  return 'categorical';
+}
+
+function colorForValue(v: string, type: QuestionType, idx: number): string {
+  if (type === 'likert' || type === 'yesno') return LIKERT_COLORS[v] ?? '#94a3b8';
+  return CATEGORICAL_COLORS[idx % CATEGORICAL_COLORS.length];
+}
+
 // ── Response distribution chart ──────────────────────────────────────────────
 
 function sortedValues(rows: SnpsResponseRow[]): string[] {
   const vals = [...new Set(rows.map(r => r.question_value_e))];
-  // Sort by Likert order if applicable, otherwise alphabetically
   const likertSorted = LIKERT_ORDER.filter(v => vals.includes(v));
   if (likertSorted.length === vals.length) return likertSorted;
-  // Yes before No
   if (vals.includes('Yes') && vals.includes('No')) return ['Yes', 'No', ...vals.filter(v => v !== 'Yes' && v !== 'No')];
   return vals.sort();
 }
@@ -152,7 +169,9 @@ function ResponseChart({
   const psRows   = rows.filter(r => r.dept_e === PS_TOTAL && r.year === year);
   const deptRows = rows.filter(r => r.dept_e === deptLabel && r.year === year);
 
-  const values = sortedValues([...psRows, ...deptRows]);
+  const values  = sortedValues([...psRows, ...deptRows]);
+  const qType   = detectType(values);
+  const isScored = qType === 'likert' || qType === 'yesno';
 
   function toChartRow(label: string, data: SnpsResponseRow[]) {
     const row: Record<string, string | number> = { name: label };
@@ -167,30 +186,32 @@ function ResponseChart({
     ? [toChartRow(deptLabel.length > 40 ? deptLabel.slice(0, 40) + '…' : deptLabel, deptRows), toChartRow(PS_TOTAL, psRows)]
     : [toChartRow(PS_TOTAL, psRows)];
 
-  const positiveKeys = ['To a great extent', 'To a moderate extent', 'Yes'];
   function posScore(data: SnpsResponseRow[]) {
-    return Math.round(data.filter(r => positiveKeys.includes(r.question_value_e))
+    return Math.round(data.filter(r => POSITIVE_KEYS.has(r.question_value_e))
       .reduce((s, r) => s + r.shr_w_resp * 100, 0));
   }
 
   const deptPos = posScore(deptRows.length ? deptRows : psRows);
   const psPos   = posScore(psRows);
+  const positiveLabel = values.filter(v => POSITIVE_KEYS.has(v)).join(' + ');
 
   return (
     <div>
-      {/* Positive score headline */}
-      <div style={{ display: 'flex', gap: 24, marginBottom: 20, flexWrap: 'wrap' }}>
-        {dept && deptLabel !== PS_TOTAL && (
-          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '12px 20px' }}>
-            <div style={{ fontSize: 28, fontWeight: 700, color: '#15803d', lineHeight: 1 }}>{deptPos}%</div>
-            <div style={{ fontSize: 12, color: '#374151', marginTop: 4 }}>positive — {deptLabel.length > 30 ? deptLabel.slice(0, 30) + '…' : deptLabel}</div>
+      {/* Positive score headline — only for Likert / Yes-No */}
+      {isScored && (
+        <div style={{ display: 'flex', gap: 24, marginBottom: 20, flexWrap: 'wrap' }}>
+          {dept && deptLabel !== PS_TOTAL && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '12px 20px' }}>
+              <div style={{ fontSize: 28, fontWeight: 700, color: '#15803d', lineHeight: 1 }}>{deptPos}%</div>
+              <div style={{ fontSize: 12, color: '#374151', marginTop: 4 }}>positive — {deptLabel.length > 30 ? deptLabel.slice(0, 30) + '…' : deptLabel}</div>
+            </div>
+          )}
+          <div style={{ background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 20px' }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: '#1d3557', lineHeight: 1 }}>{psPos}%</div>
+            <div style={{ fontSize: 12, color: '#374151', marginTop: 4 }}>positive — Federal Public Service</div>
           </div>
-        )}
-        <div style={{ background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 20px' }}>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#1d3557', lineHeight: 1 }}>{psPos}%</div>
-          <div style={{ fontSize: 12, color: '#374151', marginTop: 4 }}>positive — Federal Public Service</div>
         </div>
-      </div>
+      )}
 
       <ResponsiveContainer width="100%" height={dept && deptLabel !== PS_TOTAL ? 120 : 72}>
         <BarChart layout="vertical" data={chartData} margin={{ top: 0, right: 40, left: 0, bottom: 0 }} barSize={28}>
@@ -199,13 +220,13 @@ function ResponseChart({
           <YAxis type="category" dataKey="name" width={dept && deptLabel !== PS_TOTAL ? 180 : 160} tick={{ fontSize: 11 }} />
           <Tooltip formatter={(v: number) => `${v}%`} />
           <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-          {values.map(v => (
-            <Bar key={v} dataKey={v} stackId="a" fill={LIKERT_COLORS[v] ?? '#94a3b8'} />
+          {values.map((v, i) => (
+            <Bar key={v} dataKey={v} stackId="a" fill={colorForValue(v, qType, i)} />
           ))}
         </BarChart>
       </ResponsiveContainer>
       <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>
-        Values shown as % of respondents. "Positive" = {values.filter(v => positiveKeys.includes(v)).join(' + ')}.
+        Values shown as % of respondents.{isScored && positiveLabel ? ` "Positive" = ${positiveLabel}.` : ''}
       </div>
     </div>
   );
@@ -215,17 +236,20 @@ function ResponseChart({
 
 function TrendChart({ rows, dept }: { rows: SnpsResponseRow[]; dept: string | null }) {
   const deptLabel = dept ?? PS_TOTAL;
-  const positiveKeys = new Set(['To a great extent', 'To a moderate extent', 'Yes']);
 
   const years = [...new Set(rows.map(r => r.year))].sort();
   if (years.length < 2) return null;
+
+  // Only show trend for scoreable question types
+  const allVals = [...new Set(rows.map(r => r.question_value_e))];
+  if (detectType(allVals) === 'categorical') return null;
 
   const depts = dept && deptLabel !== PS_TOTAL ? [deptLabel, PS_TOTAL] : [PS_TOTAL];
 
   const data = years.map(y => {
     const row: Record<string, number | string> = { year: y };
     for (const d of depts) {
-      const dRows = rows.filter(r => r.year === y && r.dept_e === d && positiveKeys.has(r.question_value_e));
+      const dRows = rows.filter(r => r.year === y && r.dept_e === d && POSITIVE_KEYS.has(r.question_value_e));
       row[d] = Math.round(dRows.reduce((s, r) => s + r.shr_w_resp * 100, 0));
     }
     return row;
