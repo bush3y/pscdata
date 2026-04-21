@@ -27,7 +27,7 @@ export const useSnpsYears = () =>
   useQuery<number[]>({
     queryKey: ['snps-years'],
     queryFn: () => client.get('/snps/years').then(r => r.data),
-    staleTime: 5 * 60_000,
+    staleTime: 30_000,
   });
 
 export const useSnpsDepartments = () =>
