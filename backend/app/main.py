@@ -16,6 +16,7 @@ from app.routers import (
     funnel,
     ingestion,
     query,
+    snps,
     staffing,
 )
 
@@ -114,6 +115,7 @@ app.include_router(advertisements.router, prefix=PREFIX)
 app.include_router(staffing.router, prefix=PREFIX)
 app.include_router(funnel.router, prefix=PREFIX)
 app.include_router(ingestion.router, prefix=PREFIX)
+app.include_router(snps.router, prefix=PREFIX)
 app.include_router(query.router, prefix=PREFIX)
 
 

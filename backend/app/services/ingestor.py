@@ -173,6 +173,7 @@ class DataIngestor:
             self.ingest_advertisements,
             self.ingest_staffing_dashboard,
             self.ingest_tbs_population,
+            self.ingest_snps,
         ):
             try:
                 result = await method()
@@ -369,5 +370,71 @@ class DataIngestor:
                 except Exception as exc:  # noqa: BLE001
                     logger.exception("Failed to ingest TBS resource '%s': %s", res["name"], exc)
                     await self._log_finish(conn, log_id, "error", error=str(exc))
+
+        return IngestResult(dataset_key=dataset_key, status="success", rows_loaded=total_rows)
+
+    async def ingest_snps(self) -> IngestResult:
+        """Ingest SNPS responses, questions, and response profiles for 2021, 2023, 2025."""
+        dataset_key = "snps"
+        from app.config import settings
+
+        total_rows = 0
+
+        async with get_write_conn() as conn:
+            conn.execute("TRUNCATE snps_responses")
+            conn.execute("TRUNCATE snps_questions")
+            conn.execute("TRUNCATE snps_response_profile")
+
+            for year, ckan_id in settings.SNPS_DATASET_IDS.items():
+                resources = await self._ckan.list_csv_resources(ckan_id)
+
+                for res in resources:
+                    name_lower = res["name"].lower()
+
+                    # Match only the three CSVs we need; skip docs and demographic breakdowns
+                    if re.search(r"snps.?01", name_lower):
+                        target_table = "snps_responses"
+                    elif re.search(r"snps.?13", name_lower):
+                        target_table = "snps_response_profile"
+                    elif re.search(r"snps.?14", name_lower):
+                        target_table = "snps_questions"
+                    else:
+                        continue
+
+                    if any(ext in name_lower for ext in (".docx", ".html", ".xlsx")):
+                        continue
+
+                    log_id = _log_id()
+                    await self._log_start(conn, log_id, dataset_key, res["name"], res["url"])
+                    try:
+                        df = await self._ckan.download_csv(res["url"])
+                        df.columns = [c.lower().replace(" ", "_") for c in df.columns]
+                        df = df.replace(r"^\s*$|^\*+$", float("nan"), regex=True)
+
+                        if target_table == "snps_responses":
+                            if "question_value_e" in df.columns:
+                                mask = df["question_value_e"].str.lower().str.contains(
+                                    r"all respondents|tous les r", na=False, regex=True
+                                )
+                                df = df[~mask]
+
+                        elif target_table == "snps_response_profile":
+                            df = df.rename(columns={"n": "count"})
+
+                        df["year"] = year
+                        df["_loaded_at"] = datetime.now(timezone.utc)
+                        rows = await self._insert_df(conn, target_table, df)
+                        total_rows += rows
+                        await self._log_finish(conn, log_id, "success", rows)
+                        logger.info(
+                            "Loaded %d rows into %s from '%s' (year=%d)",
+                            rows, target_table, res["name"], year,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.exception(
+                            "Failed to ingest SNPS resource '%s' (year=%d): %s",
+                            res["name"], year, exc,
+                        )
+                        await self._log_finish(conn, log_id, "error", error=str(exc))
 
         return IngestResult(dataset_key=dataset_key, status="success", rows_loaded=total_rows)

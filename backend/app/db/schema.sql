@@ -345,3 +345,37 @@ FROM raw_advertisements
 GROUP BY fiscal_year
 ORDER BY fiscal_year;
 
+
+CREATE TABLE IF NOT EXISTS snps_responses (
+    year              INTEGER,
+    dept_e            VARCHAR,
+    dept_f            VARCHAR,
+    question          VARCHAR,
+    question_value_e  VARCHAR,
+    question_value_f  VARCHAR,
+    shr_w_resp        DOUBLE,
+    total_w_resp      INTEGER,
+    _loaded_at        TIMESTAMP DEFAULT current_timestamp
+);
+
+CREATE TABLE IF NOT EXISTS snps_questions (
+    year        INTEGER,
+    question    VARCHAR,
+    category_e  VARCHAR,
+    category_f  VARCHAR,
+    theme_e     VARCHAR,
+    theme_f     VARCHAR,
+    question_e  VARCHAR,
+    question_f  VARCHAR,
+    _loaded_at  TIMESTAMP DEFAULT current_timestamp
+);
+
+CREATE TABLE IF NOT EXISTS snps_response_profile (
+    year           INTEGER,
+    dept_e         VARCHAR,
+    dept_f         VARCHAR,
+    respondents_e  VARCHAR,
+    respondents_f  VARCHAR,
+    count          INTEGER,
+    _loaded_at     TIMESTAMP DEFAULT current_timestamp
+);
