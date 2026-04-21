@@ -418,6 +418,14 @@ class DataIngestor:
                                     r"all respondents|tous les r", na=False, regex=True
                                 )
                                 df = df[~mask]
+                            # Normalize question codes to uppercase (2021/2023 CSVs use lowercase)
+                            if "question" in df.columns:
+                                df["question"] = df["question"].str.upper()
+                            # Normalize PS-total dept name to canonical casing (varies by year)
+                            if "dept_e" in df.columns:
+                                df["dept_e"] = df["dept_e"].replace(
+                                    {"Federal public service": "Federal Public Service"}
+                                )
 
                         elif target_table == "snps_response_profile":
                             df = df.rename(columns={"n": "count"})
