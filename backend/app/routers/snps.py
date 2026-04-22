@@ -39,16 +39,22 @@ async def get_snps_questions(year: int | None = None) -> list[dict]:
         year = rows[0]["y"] if rows else None
     if year is None:
         return []
-    # Use latest snps_questions year as the canonical metadata source
+    # Use latest snps_questions as canonical metadata, but fall back to the
+    # browse year's own snps_questions for questions not found in the latest year
+    # (handles 2021/2023-only questions that were retired in later surveys).
     meta_rows = _q("SELECT MAX(year) AS y FROM snps_questions")
     meta_year = meta_rows[0]["y"] if meta_rows else year
     return _q(
         "SELECT q.question, q.category_e, q.category_f, q.theme_e, q.theme_f, q.question_e, q.question_f "
         "FROM snps_questions q "
-        "WHERE q.year = ? "
-        "  AND EXISTS (SELECT 1 FROM snps_responses r WHERE r.question = q.question AND r.year = ?) "
-        "ORDER BY q.question",
-        [meta_year, year],
+        "WHERE q.year = ? AND EXISTS (SELECT 1 FROM snps_responses r WHERE r.question = q.question AND r.year = ?) "
+        "UNION "
+        "SELECT q2.question, q2.category_e, q2.category_f, q2.theme_e, q2.theme_f, q2.question_e, q2.question_f "
+        "FROM snps_questions q2 "
+        "WHERE q2.year = ? AND EXISTS (SELECT 1 FROM snps_responses r WHERE r.question = q2.question AND r.year = ?) "
+        "  AND NOT EXISTS (SELECT 1 FROM snps_questions qlatest WHERE qlatest.year = ? AND qlatest.question = q2.question) "
+        "ORDER BY question",
+        [meta_year, year, year, year, meta_year],
     )
 
 
