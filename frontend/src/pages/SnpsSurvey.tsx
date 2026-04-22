@@ -378,13 +378,21 @@ function QuestionList({
 export default function SnpsSurvey() {
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
+  const [browseYear, setBrowseYear] = useState<number | null>(null);
 
   const { data: years = [] } = useSnpsYears();
   const latestYear = years.length ? Math.max(...years) : null;
+  const effectiveBrowseYear = browseYear ?? latestYear;
 
-  // Question list always shows latest year's questions as the canonical set
-  const { data: questions = [] } = useSnpsQuestions(latestYear ?? undefined);
+  // Question list tracks the browse year; trend shows all years that share the code
+  const { data: questions = [] } = useSnpsQuestions(effectiveBrowseYear ?? undefined);
   const { data: trend = [], isLoading: loadingTrend } = useSnpsTrend(selectedQuestion, selectedDept);
+
+  // Clear selection when switching browse years if question not in new list
+  const questionInList = questions.some(q => q.question === selectedQuestion);
+  useEffect(() => {
+    if (questions.length > 0 && selectedQuestion && !questionInList) setSelectedQuestion(null);
+  }, [questions, selectedQuestion, questionInList]);
 
   const questionMeta = questions.find(q => q.question === selectedQuestion);
 
@@ -427,8 +435,26 @@ export default function SnpsSurvey() {
           overflowY: 'auto',
           position: 'sticky', top: 16,
         }}>
-          <div style={{ padding: '10px 12px 8px', fontSize: 11, fontWeight: 600, color: '#6b7280', borderBottom: '1px solid #e5e7eb', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {questions.length} questions
+          <div style={{ padding: '10px 12px 8px', borderBottom: '1px solid #e5e7eb' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+              Survey year
+            </div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {years.map(y => (
+                <button
+                  key={y}
+                  onClick={() => setBrowseYear(y === effectiveBrowseYear ? null : y)}
+                  style={{
+                    padding: '3px 10px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
+                    border: '1px solid',
+                    borderColor: effectiveBrowseYear === y ? '#1d3557' : '#e5e7eb',
+                    background: effectiveBrowseYear === y ? '#1d3557' : '#fff',
+                    color: effectiveBrowseYear === y ? '#fff' : '#6b7280',
+                  }}
+                >{y}</button>
+              ))}
+            </div>
+            <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 6 }}>{questions.length} questions</div>
           </div>
           {questions.length === 0 ? (
             <div style={{ padding: 16, fontSize: 13, color: '#9ca3af' }}>No data — trigger ingestion first.</div>

@@ -31,19 +31,24 @@ async def get_snps_departments() -> list[str]:
 
 @router.get("/questions")
 async def get_snps_questions(year: int | None = None) -> list[dict]:
-    """Return questions that have response data. Defaults to latest available year."""
+    """Return questions that have response data for the given year.
+    Always uses the latest snps_questions as metadata source (canonical 2025 codes).
+    Defaults to latest available response year."""
     if year is None:
-        rows = _q("SELECT MAX(year) AS y FROM snps_questions")
+        rows = _q("SELECT MAX(year) AS y FROM snps_responses")
         year = rows[0]["y"] if rows else None
     if year is None:
         return []
+    # Use latest snps_questions year as the canonical metadata source
+    meta_rows = _q("SELECT MAX(year) AS y FROM snps_questions")
+    meta_year = meta_rows[0]["y"] if meta_rows else year
     return _q(
         "SELECT q.question, q.category_e, q.category_f, q.theme_e, q.theme_f, q.question_e, q.question_f "
         "FROM snps_questions q "
         "WHERE q.year = ? "
-        "  AND EXISTS (SELECT 1 FROM snps_responses r WHERE r.question = q.question AND r.year = q.year) "
+        "  AND EXISTS (SELECT 1 FROM snps_responses r WHERE r.question = q.question AND r.year = ?) "
         "ORDER BY q.question",
-        [year],
+        [meta_year, year],
     )
 
 

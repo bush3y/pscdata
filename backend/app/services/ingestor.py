@@ -373,6 +373,58 @@ class DataIngestor:
 
         return IngestResult(dataset_key=dataset_key, status="success", rows_loaded=total_rows)
 
+    # Crosswalk: 2023/2021 old question codes -> canonical 2025 codes
+    # Extracted from PSC snps12_a (Data Visualization Dataset) which harmonizes both years.
+    # Codes with the same old/new value are identity mappings (code unchanged across years).
+    SNPS_CODE_CROSSWALK: dict[str, str] = {
+        "ED_05": "ED_01", "GEN_30": "GEN_05", "GEN_40": "GEN_08",
+        "HMN_10": "HMN_01",
+        "HMN_15B": "HMN_08A", "HMN_15D": "HMN_08B",
+        "HMN_25A": "HMN_09_1", "HMN_25B": "HMN_09_2", "HMN_25C": "HMN_09_3",
+        "HMN_25D": "HMN_09_4", "HMN_25E": "HMN_09_5", "HMN_25F": "HMN_09_6",
+        "HMN_25G": "HMN_09_8", "HMN_30E": "HMN_10A",
+        "HMN_35_1": "HMN_10B_1", "HMN_35_2": "HMN_10B_2", "HMN_35_3": "HMN_10B_3",
+        "HMN_35_4": "HMN_10B_4", "HMN_35_5": "HMN_10B_5", "HMN_35_6": "HMN_10B_6",
+        "HMN_35_7": "HMN_10B_7", "HMN_35_8": "HMN_10B_8", "HMN_35_9": "HMN_10B_9",
+        "HMN_35_10": "HMN_10B_10", "HMN_35_12": "HMN_10B_17",
+        "HMN_35_13": "HMN_10B_18", "HMN_35_14": "HMN_10B_20",
+        "LAB_10": "GEN_06", "LAB_20": "LAB_01",
+        "MAN_10": "MAN_01",
+        "MAN_15F": "MAN_02C", "MAN_15G": "MAN_02D",
+        "MAN_15HI_H": "MAN_05A", "MAN_15HI_I": "MAN_05B",
+        "MAN_25A": "MAN_06A_1", "MAN_25B": "MAN_06A_2", "MAN_25C": "MAN_06A_3",
+        "MAN_25D": "MAN_06A_4", "MAN_25E": "MAN_06A_6",
+        "POL_05A": "POL_01A", "POL_05B": "POL_01B", "POL_05C": "POL_01C",
+        "POL_05D": "POL_01D", "POL_05E": "POL_01E", "POL_05F": "POL_01F",
+        "POL_05G": "POL_01G", "POL_10": "POL_02",
+        "STA_10A_A": "STA_01A", "STA_10A_B": "STA_01B", "STA_10A_C": "STA_01C",
+        "STA_10A_D": "STA_01D", "STA_10A_E": "STA_01E",
+        "STA_20": "STA_04", "STA_25": "STA_05",
+        "STA_30_1": "STA_06_1", "STA_30_2": "STA_06_2", "STA_30_3": "STA_06_3",
+        "STA_30_4": "STA_06_4", "STA_30_5": "STA_06_5", "STA_30_6": "STA_06_6",
+        "STA_30_7": "STA_06_7", "STA_30_8": "STA_06_8", "STA_30_9": "STA_06_9",
+        "STA_30_10": "STA_06_10", "STA_30_11": "STA_06_11", "STA_30_12": "STA_06_12",
+        "STA_30_13": "STA_06_13", "STA_30_14": "STA_06_14", "STA_30_15": "STA_06_16",
+        "STA_30_16": "STA_06_17", "STA_30_18": "STA_06_20",
+        "STA_35": "STA_07",
+        "STA_38A": "STA_09A", "STA_38B": "STA_09B", "STA_38C": "STA_09C",
+        "STA_50B": "STA_12A", "STA_50C": "STA_12B",
+        "STA_50D_1": "STA_12C_1", "STA_50D_2": "STA_12C_2", "STA_50D_3": "STA_12C_3",
+        "STA_50D_4": "STA_12C_4", "STA_50D_5": "STA_12C_5", "STA_50D_6": "STA_12C_6",
+        "STA_50D_7": "STA_12C_7", "STA_50D_8": "STA_12C_8", "STA_50D_9": "STA_12C_9",
+        "STA_50D_10": "STA_12C_10", "STA_50D_11": "STA_12C_11", "STA_50D_12": "STA_12C_12",
+        "STA_55": "STA_12D", "STA_56": "STA_13", "STA_57": "STA_14A",
+        "STA_58_1": "STA_14C_1", "STA_58_2": "STA_14C_2", "STA_58_3": "STA_14C_3",
+        "STA_58_4": "STA_14C_4", "STA_58_5": "STA_14C_5", "STA_58_6": "STA_14C_6",
+        "STA_58_7": "STA_14C_7",
+        "STA_60A": "STA_15A", "STA_60B": "STA_15B", "STA_60C": "STA_15C",
+        "STA_65A": "STA_16A",
+        "STA_65BA": "STA_16B_1", "STA_65BD": "STA_16B_3", "STA_65BE": "STA_16B_4",
+        "STA_65BF": "STA_16B_5", "STA_65BH": "STA_16B_6",
+        "STA_66": "STA_17",
+        "YRS_10": "YRS_01", "YRS_15": "YRS_02", "YRS_25": "YRS_03",
+    }
+
     async def ingest_snps(self) -> IngestResult:
         """Ingest SNPS responses, questions, and response profiles for 2021, 2023, 2025."""
         dataset_key = "snps"
@@ -418,10 +470,12 @@ class DataIngestor:
                                     r"all respondents|tous les r", na=False, regex=True
                                 )
                                 df = df[~mask]
-                            # Normalize question codes to uppercase (2021/2023 CSVs use lowercase)
                             if "question" in df.columns:
+                                # Uppercase codes (2021/2023 CSVs use lowercase)
                                 df["question"] = df["question"].str.upper()
-                            # Normalize PS-total dept name to canonical casing (varies by year)
+                                # Remap old codes to canonical 2025 codes for cross-year trends
+                                if year != 2025:
+                                    df["question"] = df["question"].replace(self.SNPS_CODE_CROSSWALK)
                             if "dept_e" in df.columns:
                                 df["dept_e"] = df["dept_e"].replace(
                                     {"Federal public service": "Federal Public Service"}
