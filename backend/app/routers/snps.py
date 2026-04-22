@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query  # noqa: F401
 
 from app.database import query_to_records
 
@@ -91,4 +91,28 @@ async def get_snps_trend(
         f"WHERE question = ? AND dept_e IN ({placeholders}) "
         f"ORDER BY year, dept_e, question_value_e",
         [question, *depts],
+    )
+
+
+@router.get("/dept-scores")
+async def get_snps_dept_scores(question: str, year: int | None = None) -> list[dict]:
+    """Positive % per department for a question/year, sorted descending."""
+    if year is None:
+        rows = _q("SELECT MAX(year) AS y FROM snps_responses WHERE question = ?", [question])
+        year = rows[0]["y"] if rows else None
+    if year is None:
+        return []
+
+    positive_vals = ("To a great extent", "To a moderate extent", "Yes")
+    placeholders = ", ".join("?" * len(positive_vals))
+
+    return _q(
+        f"SELECT dept_e, "  # noqa: S608
+        f"ROUND(SUM(CASE WHEN question_value_e IN ({placeholders}) THEN shr_w_resp ELSE 0 END) * 100) AS positive_pct, "
+        f"MAX(total_w_resp) AS n_respondents "
+        f"FROM snps_responses "
+        f"WHERE question = ? AND year = ? AND dept_e != ? "
+        f"GROUP BY dept_e "
+        f"ORDER BY positive_pct DESC",
+        [*positive_vals, question, year, PS_TOTAL_DEPT],
     )

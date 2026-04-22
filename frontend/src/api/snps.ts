@@ -63,3 +63,19 @@ export const useSnpsTrend = (question: string | null, dept: string | null) =>
     enabled: !!question,
     staleTime: 5 * 60_000,
   });
+
+export interface SnpsDeptScore {
+  dept_e: string;
+  positive_pct: number;
+  n_respondents: number;
+}
+
+export const useSnpsDeptScores = (question: string | null, year: number | null) =>
+  useQuery<SnpsDeptScore[]>({
+    queryKey: ['snps-dept-scores', question, year],
+    queryFn: () => client.get('/snps/dept-scores', {
+      params: { question, ...(year ? { year } : {}) },
+    }).then(r => r.data),
+    enabled: !!question,
+    staleTime: 5 * 60_000,
+  });
