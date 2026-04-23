@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, Cell,
@@ -466,9 +467,21 @@ function QuestionList({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function SnpsSurvey() {
-  const [selectedDept, setSelectedDept] = useState<string | null>(null);
-  const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [selectedDept, _setSelectedDept] = useState<string | null>(() => searchParams.get('dept'));
+  const [selectedQuestion, _setSelectedQuestion] = useState<string | null>(() => searchParams.get('q'));
   const [browseYear, setBrowseYear] = useState<number | null>(null);
+
+  function setSelectedDept(dept: string | null) {
+    _setSelectedDept(dept);
+    setSearchParams(p => { dept ? p.set('dept', dept) : p.delete('dept'); return p; }, { replace: true });
+  }
+
+  function setSelectedQuestion(q: string | null) {
+    _setSelectedQuestion(q);
+    setSearchParams(p => { q ? p.set('q', q) : p.delete('q'); return p; }, { replace: true });
+  }
 
   const { data: years = [] } = useSnpsYears();
   const latestYear = years.length ? Math.max(...years) : null;
