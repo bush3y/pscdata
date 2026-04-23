@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer,
+  Legend, ResponsiveContainer, Cell,
 } from 'recharts';
 import {
   PS_TOTAL,
@@ -220,18 +220,72 @@ function DeptRankingChart({
   if (isLoading) return <div style={{ fontSize: 13, color: '#9ca3af', padding: '12px 0' }}>Loading…</div>;
   if (scores.length === 0) return null;
 
-  // Only render if there's meaningful positive scoring (skip pure categorical)
   const hasPositive = scores.some(s => s.positive_pct > 0);
   if (!hasPositive) return null;
 
-  const maxPct = Math.max(...scores.map(s => s.positive_pct), 1);
   const highlightDept = selectedDept ?? PS_TOTAL;
+  const highlightIdx  = scores.findIndex(s => s.dept_e === highlightDept);
+  const highlightRank = highlightIdx >= 0 ? highlightIdx + 1 : null;
+
+  // Custom X-axis tick — only renders a triangle marker for the highlighted bar
+  const HighlightTick = (props: { x?: number; y?: number; payload?: { value: string } }) => {
+    const { x = 0, y = 0, payload } = props;
+    if (payload?.value !== highlightDept) return null;
+    return (
+      <g transform={`translate(${x},${y + 4})`}>
+        <polygon points="0,-5 4,2 -4,2" fill="#1d3557" />
+      </g>
+    );
+  };
+
+  // Custom tooltip
+  const RankingTooltip = (props: { active?: boolean; payload?: Array<{ payload: { dept_e: string; positive_pct: number } }> }) => {
+    const { active, payload } = props;
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    const isHighlight = d.dept_e === highlightDept;
+    return (
+      <div style={{
+        background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
+        padding: '7px 11px', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+        maxWidth: 220,
+      }}>
+        <div style={{ fontWeight: isHighlight ? 700 : 600, color: isHighlight ? '#1d3557' : '#374151', marginBottom: 3, lineHeight: 1.4 }}>
+          {d.dept_e}
+        </div>
+        <div style={{ color: '#6b7280' }}>{d.positive_pct}% positive</div>
+      </div>
+    );
+  };
+
+  // Bar label — only on the highlighted bar, shows the % above it
+  const HighlightLabel = (props: { x?: number; y?: number; width?: number; value?: number; index?: number }) => {
+    const { x = 0, y = 0, width = 0, value, index } = props;
+    if (scores[index ?? -1]?.dept_e !== highlightDept) return null;
+    return (
+      <text
+        x={x + width / 2} y={y - 5}
+        textAnchor="middle" fill="#1d3557"
+        fontSize={11} fontWeight={700}
+      >
+        {value}%
+      </text>
+    );
+  };
 
   return (
     <div style={{ marginTop: 28 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>How departments compare</div>
-        <div style={{ display: 'flex', gap: 4 }}>
+        {highlightRank !== null && (
+          <div style={{ fontSize: 12, color: '#6b7280' }}>
+            <span style={{ color: '#1d3557', fontWeight: 700 }}>
+              {highlightDept === PS_TOTAL ? 'PS Total' : (highlightDept.length > 30 ? highlightDept.slice(0, 30) + '…' : highlightDept)}
+            </span>
+            {' '}ranks {highlightRank} of {scores.length}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
           {years.map(y => (
             <button
               key={y}
@@ -247,39 +301,44 @@ function DeptRankingChart({
           ))}
         </div>
       </div>
-      <div style={{ maxHeight: 420, overflowY: 'auto', paddingRight: 4 }}>
-        {scores.map(s => {
-          const isHighlighted = s.dept_e === highlightDept;
-          const pct = s.positive_pct;
-          return (
-            <div key={s.dept_e} style={{ marginBottom: 5 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{
-                  width: 180, fontSize: 11, color: isHighlighted ? '#1d3557' : '#6b7280',
-                  fontWeight: isHighlighted ? 700 : 400, textAlign: 'right',
-                  flexShrink: 0, lineHeight: 1.3,
-                }}>
-                  {s.dept_e.length > 30 ? s.dept_e.slice(0, 30) + '…' : s.dept_e}
-                </div>
-                <div style={{ flex: 1, background: '#f3f4f6', borderRadius: 3, height: 16, position: 'relative' }}>
-                  <div style={{
-                    width: `${(pct / maxPct) * 100}%`,
-                    height: '100%',
-                    borderRadius: 3,
-                    background: isHighlighted ? '#1d3557' : '#93c5fd',
-                    minWidth: pct > 0 ? 2 : 0,
-                  }} />
-                </div>
-                <div style={{ width: 36, fontSize: 11, color: isHighlighted ? '#1d3557' : '#6b7280', fontWeight: isHighlighted ? 700 : 400 }}>
-                  {pct}%
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6 }}>
-        % positive response by department · {effectiveYear}
+
+      <ResponsiveContainer width="100%" height={190}>
+        <BarChart
+          data={scores}
+          margin={{ top: 20, right: 8, left: 0, bottom: 12 }}
+          barCategoryGap="15%"
+        >
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+          <XAxis
+            dataKey="dept_e"
+            tick={<HighlightTick />}
+            axisLine={false}
+            tickLine={false}
+            interval={0}
+            height={16}
+          />
+          <YAxis
+            type="number"
+            domain={[0, 100]}
+            tickFormatter={(v: number) => `${v}%`}
+            tick={{ fontSize: 10 }}
+            width={32}
+          />
+          <Tooltip content={<RankingTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
+          <Bar dataKey="positive_pct" label={<HighlightLabel />} isAnimationActive={false}>
+            {scores.map(s => (
+              <Cell
+                key={s.dept_e}
+                fill={s.dept_e === highlightDept ? '#1d3557' : '#d1d5db'}
+                opacity={s.dept_e === highlightDept ? 1 : 0.7}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+
+      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+        Each bar = one department · hover to see name · sorted by % positive · {effectiveYear}
       </div>
     </div>
   );
