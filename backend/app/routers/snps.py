@@ -109,17 +109,36 @@ async def get_snps_trend(
 
 
 @router.get("/dept-scores")
-async def get_snps_dept_scores(question: str, year: int | None = None) -> list[dict]:
-    """Positive % per department for a question/year, sorted descending."""
+async def get_snps_dept_scores(
+    question: str,
+    year: int | None = None,
+    value_e: str | None = None,
+) -> list[dict]:
+    """% per department for a question/year, sorted descending.
+
+    When value_e is provided, ranks by share who gave that specific answer.
+    Otherwise ranks by positive response rate (great/moderate extent or Yes).
+    """
     if year is None:
         rows = _q("SELECT MAX(year) AS y FROM snps_responses WHERE question = ?", [question])
         year = rows[0]["y"] if rows else None
     if year is None:
         return []
 
+    if value_e is not None:
+        return _q(
+            "SELECT dept_e, "  # noqa: S608
+            "ROUND(SUM(CASE WHEN question_value_e = ? THEN shr_w_resp ELSE 0 END) * 100) AS positive_pct, "
+            "MAX(total_w_resp) AS n_respondents "
+            "FROM snps_responses "
+            "WHERE question = ? AND year = ? AND dept_e != ? "
+            "GROUP BY dept_e "
+            "ORDER BY positive_pct DESC",
+            [value_e, question, year, PS_TOTAL_DEPT],
+        )
+
     positive_vals = ("To a great extent", "To a moderate extent", "Yes")
     placeholders = ", ".join("?" * len(positive_vals))
-
     return _q(
         f"SELECT dept_e, "  # noqa: S608
         f"ROUND(SUM(CASE WHEN question_value_e IN ({placeholders}) THEN shr_w_resp ELSE 0 END) * 100) AS positive_pct, "

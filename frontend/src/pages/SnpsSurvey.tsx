@@ -206,22 +206,31 @@ function DeptRankingChart({
   question,
   years,
   selectedDept,
+  qType,
+  values,
 }: {
   question: string;
   years: number[];
   selectedDept: string | null;
+  qType: QuestionType;
+  values: string[];
 }) {
   const latestYear = years.length ? Math.max(...years) : null;
   const [rankYear, setRankYear] = useState<number | null>(null);
+  const [selectedValue, setSelectedValue] = useState<string | null>(null);
   const effectiveYear = rankYear ?? latestYear;
 
-  const { data: scores = [], isLoading } = useSnpsDeptScores(question, effectiveYear);
+  // For categorical questions, default to the first value
+  const isCategorical = qType === 'categorical';
+  const effectiveValue = isCategorical ? (selectedValue ?? values[0] ?? null) : null;
+
+  const { data: scores = [], isLoading } = useSnpsDeptScores(question, effectiveYear, effectiveValue);
 
   if (isLoading) return <div style={{ fontSize: 13, color: '#9ca3af', padding: '12px 0' }}>Loading…</div>;
   if (scores.length === 0) return null;
 
-  const hasPositive = scores.some(s => s.positive_pct > 0);
-  if (!hasPositive) return null;
+  // For non-categorical questions, skip if no positive scores exist
+  if (!isCategorical && !scores.some(s => s.positive_pct > 0)) return null;
 
   const highlightDept = selectedDept ?? PS_TOTAL;
   const highlightIdx  = scores.findIndex(s => s.dept_e === highlightDept);
@@ -285,7 +294,20 @@ function DeptRankingChart({
             {' '}ranks {highlightRank} of {scores.length}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', flexWrap: 'wrap' }}>
+          {isCategorical && values.map(v => (
+            <button
+              key={v}
+              onClick={() => setSelectedValue(v === effectiveValue ? null : v)}
+              style={{
+                padding: '3px 10px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
+                border: '1px solid',
+                borderColor: effectiveValue === v ? '#2a9d8f' : '#e5e7eb',
+                background: effectiveValue === v ? '#2a9d8f' : '#fff',
+                color: effectiveValue === v ? '#fff' : '#6b7280',
+              }}
+            >{v}</button>
+          ))}
           {years.map(y => (
             <button
               key={y}
@@ -338,7 +360,8 @@ function DeptRankingChart({
       </ResponsiveContainer>
 
       <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-        Each bar = one department · hover to see name · sorted by % positive · {effectiveYear}
+        Each bar = one department · hover to see name ·{' '}
+        {isCategorical ? `% who answered "${effectiveValue}"` : '% positive response'} · {effectiveYear}
       </div>
     </div>
   );
@@ -612,13 +635,13 @@ export default function SnpsSurvey() {
               </div>
 
               {/* Dept ranking chart */}
-              {isScored && (
-                <DeptRankingChart
-                  question={selectedQuestion}
-                  years={years}
-                  selectedDept={selectedDept}
-                />
-              )}
+              <DeptRankingChart
+                question={selectedQuestion}
+                years={years}
+                selectedDept={selectedDept}
+                qType={qType}
+                values={allVals}
+              />
             </div>
           )}
         </div>

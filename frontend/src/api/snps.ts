@@ -70,11 +70,11 @@ export interface SnpsDeptScore {
   n_respondents: number;
 }
 
-export const useSnpsDeptScores = (question: string | null, year: number | null) =>
+export const useSnpsDeptScores = (question: string | null, year: number | null, value?: string | null) =>
   useQuery<SnpsDeptScore[]>({
-    queryKey: ['snps-dept-scores', question, year],
+    queryKey: ['snps-dept-scores', question, year, value ?? null],
     queryFn: () => client.get('/snps/dept-scores', {
-      params: { question, ...(year ? { year } : {}) },
+      params: { question, ...(year ? { year } : {}), ...(value ? { value_e: value } : {}) },
     }).then(r => r.data),
     enabled: !!question,
     staleTime: 5 * 60_000,
