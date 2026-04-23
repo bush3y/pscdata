@@ -207,22 +207,30 @@ function DeptRankingChart({
   years,
   selectedDept,
   qType,
-  values,
+  trend,
 }: {
   question: string;
   years: number[];
   selectedDept: string | null;
   qType: QuestionType;
-  values: string[];
+  trend: SnpsResponseRow[];
 }) {
   const latestYear = years.length ? Math.max(...years) : null;
   const [rankYear, setRankYear] = useState<number | null>(null);
   const [selectedValue, setSelectedValue] = useState<string | null>(null);
   const effectiveYear = rankYear ?? latestYear;
 
-  // For categorical questions, default to the first value
   const isCategorical = qType === 'categorical';
-  const effectiveValue = isCategorical ? (selectedValue ?? values[0] ?? null) : null;
+
+  // Derive values from trend filtered to the active year so cross-year label changes don't produce duplicates
+  const valuesForYear = useMemo(() => {
+    const yearRows = trend.filter(r => r.year === effectiveYear);
+    return sortedValues(yearRows);
+  }, [trend, effectiveYear]);
+
+  // Reset selected value when it no longer exists in the active year's value list
+  const resolvedValue = selectedValue && valuesForYear.includes(selectedValue) ? selectedValue : null;
+  const effectiveValue = isCategorical ? (resolvedValue ?? valuesForYear[0] ?? null) : null;
 
   const { data: scores = [], isLoading } = useSnpsDeptScores(question, effectiveYear, effectiveValue);
 
@@ -295,7 +303,7 @@ function DeptRankingChart({
           </div>
         )}
         <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', flexWrap: 'wrap' }}>
-          {isCategorical && values.map(v => (
+          {isCategorical && valuesForYear.map(v => (
             <button
               key={v}
               onClick={() => setSelectedValue(v === effectiveValue ? null : v)}
@@ -640,7 +648,7 @@ export default function SnpsSurvey() {
                 years={years}
                 selectedDept={selectedDept}
                 qType={qType}
-                values={allVals}
+                trend={trend}
               />
             </div>
           )}
