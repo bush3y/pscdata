@@ -82,6 +82,48 @@ After first boot, navigate to `/admin` directly in the browser and trigger inges
 - `dash_vha_2`: 2015–2026. VHA priority registrations and appointments by priority type.
 - `dash_vha_3`: 2015–2026. Eligible CAF members by eligibility reason.
 
+## Data Coverage — SNPS Tables
+Survey years: 2021, 2023, 2025. Source: PSC CKAN datasets, one per year.
+
+| Table | Description |
+|---|---|
+| `snps_responses` | Per-dept response distributions for each question × question_value. Also holds derived demographic distributions (see below). |
+| `snps_questions` | Question metadata: question code, theme, category, EN/FR label. One row per year × question. Loaded from snps14 CSV. |
+| `snps_response_profile` | Respondent counts by category (employees/managers/advisors) per dept. Loaded from snps13 CSV. |
+| `snps_crosstabs` | ~11M rows. Cross-tabulation data from snps02–snps24 — every survey question × every demographic breakdown variable (age, gender, FOL, region, etc.) × dept. Used to derive demographic distributions. |
+
+### SNPS File Routing (ingestor)
+- **snps01** → `snps_responses` (main response distributions; "All respondents" rows stripped)
+- **snps12** (2021/2023 only) → `snps_responses` supplement for demographic questions absent from snps01; 2025 snps01 already has them
+- **snps13** → `snps_response_profile`
+- **snps14** → `snps_questions`
+- **snps15** — intentionally skipped (dept list, no `question` column)
+- **snps02–snps11, snps16–snps24** → `snps_crosstabs` (cross-tabulation files, one per demographic dimension)
+
+### Derived Demographic Distributions
+After each year's files are loaded, `_derive_demographic_distributions()` computes per-dept demographic composition from `snps_crosstabs` and inserts into `snps_responses`:
+- Source: rows in `snps_crosstabs` where `question_value_e = 'All respondents'` (these hold the weighted respondent count per demographic category)
+- `"All [anything]"` aggregate rows in `breakdown_value_e` are excluded to prevent denominator doubling
+- Inserted as `question = breakdown_var` (e.g. `AGG_35`), `question_value_e = category label`, `shr_w_resp = cat_total / dept_total`
+- `NOT EXISTS` check prevents re-inserting if the question already exists in `snps_responses` for that year/dept (e.g. loaded via snps01 or snps12)
+- Synthetic `snps_questions` entries (theme `'Demographic characteristics'`) are also inserted for any breakdown vars not already in snps_questions for that year
+
+### SNPS Questions Endpoint Metadata Logic
+`GET /snps/questions?year=Y` uses a two-part UNION:
+1. **Browse year first**: `snps_questions WHERE year=Y` × `snps_responses WHERE year=Y` — provides correct per-year theme/label assignments
+2. **Meta year fallback**: `snps_questions WHERE year=MAX_YEAR` × `snps_responses WHERE year=Y` × `NOT IN snps_questions year=Y` — surfaces questions introduced in later surveys that have crosswalk-mapped data in year Y
+
+Browse year is primary so that demographic theme tags reflect the actual year's PSC data, not the latest year's (avoids mistagging like 2025 hiring manager questions appearing as 2023 demographics).
+
+### SNPS Code Crosswalk
+Question codes changed between survey years. `SNPS_CODE_CROSSWALK` in `ingestor.py` maps 2021/2023 codes to canonical 2025 codes on ingest (e.g. `YRS_15` → `YRS_02`, `LAB_01` → `LAB_01`). Applied to snps01, snps12, and snps_crosstabs question columns. `SNPS_BREAKDOWN_COL_MAP` maps CSV column names to canonical breakdown var codes (e.g. `agg_35_e` → `AGG_35`).
+
+### SNPS Known Quirks
+- `dept_f` uses title case in 2025 source (`"Fonction Publique Fédérale"`) vs sentence case in 2023 (`"Fonction publique fédérale"`). Normalized to sentence case on ingest.
+- `dept_e = "Federal public service"` (lowercase) normalized to `"Federal Public Service"` on ingest across all SNPS paths.
+- HMN_01 is tagged as `theme_e = 'Demographic characteristics'` in PSC's 2025 snps_questions source data — this appears to be a PSC tagging error but we load it as-is.
+- The derived demographic shares are computed from all-respondent crosstab rows across ALL questions (employees + managers + advisors), so they don't match the PSC website's "Employees only" filtered view exactly. Shape is similar but not identical.
+
 ## Known Data Quirks
 - GoC CSVs use `" "` (space) and `*` to suppress small counts — treated as NULL on ingest (applies to both `raw_advertisements` and all staffing tables)
 - Some staffing CSVs have extra columns (e.g. `pct_chg_qtr`) not in schema — handled by PRAGMA-based column alignment in `_insert_df`
@@ -130,6 +172,7 @@ Most `dash_*` staffing tables have a `quarter` column (`dash_demo_fol` is the ex
 |---|---|---|
 | `/` | Staffing Dashboard | Home page — KPI summary cards + 6-tab dashboard |
 | `/snapshot` | Department Snapshot | Executive summary for a specific dept or PS Total — headline, KPI cards, chart, composition, comparison table, PSC oversight indicators |
+| `/snps` | SNPS Survey | Browse 2021/2023/2025 Staffing and Non-Partisanship Survey results — question browser by theme, multi-year bar chart, dept comparison |
 | `/query` | Data Explorer | Standard column picker + Advanced SQL mode for raw advertisements and all tables |
 | `/process` | Process Lookup | Search by selection process # or reference #; shows process detail card |
 | `/admin` | Data Ingestion | Trigger ingestion, view log history — not linked in nav, access directly by URL |
@@ -223,6 +266,12 @@ Sub-selector with 5 views:
 - `GET /funnel` — recruitment funnel aggregated by fiscal year
 - `GET /funnel/by-region` — funnel by administrator region
 - `POST /query/raw` — execute a read-only SELECT against any table; sanitized (SELECT-only, no semicolons, forbidden keyword blocklist); `limit=0` = no cap; returns `{rows, row_count, capped, columns}`
+- `GET /snps/years` — available survey years
+- `GET /snps/departments` — dept list from snps_responses (excludes PS Total)
+- `GET /snps/questions?year=` — questions with response data for a year; defaults to latest year; uses browse-year snps_questions for metadata (correct themes), falls back to latest year for questions only in later surveys
+- `GET /snps/responses?question=&year=&dept=` — response distribution; always returns both dept AND PS Total rows for chart comparison (not a bug — callers must not sum across all rows)
+- `GET /snps/trend?question=&dept=` — response distribution across all available years
+- `GET /snps/dept-scores?question=&year=` — positive % per department, sorted descending
 - `POST /ingest` — trigger ingestion (background task)
 - `GET /ingest/status` — last 50 ingest log entries
 
@@ -312,4 +361,4 @@ Executive summary for a specific department or PS Total. Department selector wit
 
 ### Parking lot
 - **FR translations** — i18n wiring exists but strings are minimal; needs bilingual GC domain reviewer (PSC terminology has specific official FR equivalents)
-- **SNPS demographic breakdown CSVs** (snps02–snps12, one per demographic dimension) — not yet ingested. These use the demographic self-identification question codes (ABM_*, GND_*, etc.) as segmentation variables, not as browseable questions. Future use cases: (1) SNPS segment explorer — filter any survey question by age/EE group/region/tenure etc.; (2) cross-tabulation with staffing outcomes on Department Snapshot (e.g. "how do EE groups rate their hiring experience?"). Schema would add a `breakdown_type` + `breakdown_value_e/f` to `snps_responses` or a separate `snps_responses_demo` table.
+- **SNPS segment explorer** — snps02–snps24 are now ingested into `snps_crosstabs` (~11M rows). Future feature: allow filtering any survey question by demographic segment (age/EE group/region/tenure etc.) using the crosstab data. Would require a new frontend view and a `/snps/crosstab` endpoint that queries `snps_crosstabs` directly rather than the derived `snps_responses` aggregates.
