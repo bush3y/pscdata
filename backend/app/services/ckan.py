@@ -54,7 +54,10 @@ class CKANClient:
         """
         resp = await self._client.get(url, follow_redirects=True)
         resp.raise_for_status()
-        df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+        try:
+            df = pd.read_csv(io.BytesIO(resp.content), low_memory=False)
+        except UnicodeDecodeError:
+            df = pd.read_csv(io.BytesIO(resp.content), low_memory=False, encoding="latin-1")
         # Normalise column names
         df.columns = [c.lower().replace(" ", "_").replace("-", "_") for c in df.columns]
         logger.debug("Downloaded CSV from %s — %d rows, %d cols", url, len(df), len(df.columns))

@@ -373,6 +373,40 @@ class DataIngestor:
 
         return IngestResult(dataset_key=dataset_key, status="success", rows_loaded=total_rows)
 
+    # Canonical breakdown variable codes for snps02–snps24 cross-tabulation files.
+    # Maps CSV column name (without _e/_f suffix, lowercased) → canonical uppercase code.
+    SNPS_BREAKDOWN_COL_MAP: dict[str, str] = {
+        "gdr_10":     "GDR_10",
+        "ddis_fl":    "DDIS_FL",
+        "vismin_fl":  "VISMIN_FL",
+        "visminfl":   "VISMIN_FL",   # 2021 typo in source CSV
+        "iidflag":    "IIDFLAG",
+        "fol_05":     "FOL_05",
+        "region1":    "LAB_01",
+        "lab_20":     "LAB_01",      # 2021/2023 old code for region
+        "lab_01":     "LAB_01",
+        "occlevel":   "ALL_D30A",
+        "all_d30a":   "ALL_D30A",
+        "agg_35":     "AGG_35",
+        "yrs_15":     "YRS_02",      # 2021/2023 old code
+        "yrs_02":     "YRS_02",
+        "lab_10":     "GEN_06",      # 2021/2023 old code
+        "gen_06":     "GEN_06",
+        "ed_05":      "ED_01",       # 2021/2023 old code
+        "ed_01":      "ED_01",
+        "mrt_sts":    "PG_06",       # 2023 marital status
+        "pg_06":      "PG_06",
+        "gdrplus_fl": "GDR_FL",      # 2023 2SLGBTQIA+ flag
+        "gdr_fl":     "GDR_FL",
+        "gdr_11a":    "GDR_11A",
+        "gdr_11b":    "GDR_11B",
+        "pg_07":      "PG_07",
+        "pg_08":      "PG_08",
+        "pg_05":      "PG_05",
+        "abm_01":     "ABM_01",
+        "dis_01":     "DIS_01",
+    }
+
     # Crosswalk: 2023/2021 old question codes -> canonical 2025 codes
     # Extracted from PSC snps12_a (Data Visualization Dataset) which harmonizes both years.
     # Codes with the same old/new value are identity mappings (code unchanged across years).
@@ -431,26 +465,46 @@ class DataIngestor:
         from app.config import settings
 
         total_rows = 0
+        # Track which question codes were loaded from snps01 per year so snps12
+        # supplements only add questions that are genuinely missing.
+        snps01_loaded: dict[int, set[str]] = {}
 
         async with get_write_conn() as conn:
             conn.execute("TRUNCATE snps_responses")
             conn.execute("TRUNCATE snps_questions")
             conn.execute("TRUNCATE snps_response_profile")
+            conn.execute("TRUNCATE snps_crosstabs")
 
             for year, ckan_id in settings.SNPS_DATASET_IDS.items():
                 resources = await self._ckan.list_csv_resources(ckan_id)
+                snps01_loaded[year] = set()
 
                 for res in resources:
                     # Match against both name and URL — CKAN resource names vary but URL always has filename
                     check = (res["name"] + " " + res["url"]).lower()
 
-                    # Match only the three CSVs we need; skip docs and demographic breakdowns
                     if re.search(r"snps.?01", check):
                         target_table = "snps_responses"
+                        is_snps12 = False
+                    elif re.search(r"snps.?12", check) and year in (2021, 2023):
+                        # Supplement: demographic questions absent from snps01 for 2021/2023.
+                        # 2025 snps01 already contains all demographic questions.
+                        target_table = "snps_responses"
+                        is_snps12 = True
                     elif re.search(r"snps.?13", check):
                         target_table = "snps_response_profile"
+                        is_snps12 = False
                     elif re.search(r"snps.?14", check):
                         target_table = "snps_questions"
+                        is_snps12 = False
+                    elif re.search(r"snps.?(?:0[2-9]|1[0-1]|1[6-9]|2[0-4])", check):
+                        # snps02–snps11, snps16–snps24 are cross-tabulation files
+                        # snps12 is handled above (supplement for 2021/2023)
+                        # snps13 is handled above (response profile)
+                        # snps14 is handled above (questions metadata)
+                        # snps15 is the department list — intentionally skipped
+                        target_table = "snps_crosstabs"
+                        is_snps12 = False
                     else:
                         continue
 
@@ -461,25 +515,44 @@ class DataIngestor:
                     await self._log_start(conn, log_id, dataset_key, res["name"], res["url"])
                     try:
                         df = await self._ckan.download_csv(res["url"])
-                        df.columns = [c.lower().replace(" ", "_") for c in df.columns]
+                        df.columns = [
+                            c.lower().strip().lstrip("\ufeff").strip('"').replace(" ", "_")
+                            for c in df.columns
+                        ]
                         df = df.replace(r"^\s*$|^\*+$", float("nan"), regex=True)
 
                         if target_table == "snps_responses":
-                            if "question_value_e" in df.columns:
-                                mask = df["question_value_e"].str.lower().str.contains(
-                                    r"all respondents|tous les r", na=False, regex=True
-                                )
-                                df = df[~mask]
-                            if "question" in df.columns:
-                                # Uppercase codes (2021/2023 CSVs use lowercase)
-                                df["question"] = df["question"].str.upper()
-                                # Remap old codes to canonical 2025 codes for cross-year trends
-                                if year != 2025:
-                                    df["question"] = df["question"].replace(self.SNPS_CODE_CROSSWALK)
-                            if "dept_e" in df.columns:
-                                df["dept_e"] = df["dept_e"].replace(
-                                    {"Federal public service": "Federal Public Service"}
-                                )
+                            if is_snps12:
+                                df = self._process_snps12_supplement(df, year, snps01_loaded[year])
+                                if df is None or df.empty:
+                                    await self._log_finish(conn, log_id, "success", 0)
+                                    continue
+                            else:
+                                # snps01 standard processing
+                                if "question_value_e" in df.columns:
+                                    mask = df["question_value_e"].str.lower().str.contains(
+                                        r"all respondents|tous les r", na=False, regex=True
+                                    )
+                                    df = df[~mask]
+                                if "question" in df.columns:
+                                    df["question"] = df["question"].str.upper()
+                                    if year != 2025:
+                                        df["question"] = df["question"].replace(self.SNPS_CODE_CROSSWALK)
+                                if "dept_e" in df.columns:
+                                    df["dept_e"] = df["dept_e"].replace(
+                                        {"Federal public service": "Federal Public Service"}
+                                    )
+                                if "dept_f" in df.columns:
+                                    df["dept_f"] = df["dept_f"].replace(
+                                        {"Fonction Publique Fédérale": "Fonction publique fédérale"}
+                                    )
+                                snps01_loaded[year].update(df["question"].dropna().unique())
+
+                        elif target_table == "snps_crosstabs":
+                            df = self._process_crosstab(df, year)
+                            if df is None or df.empty:
+                                await self._log_finish(conn, log_id, "success", 0)
+                                continue
 
                         elif target_table == "snps_response_profile":
                             df = df.rename(columns={"n": "count"})
@@ -500,4 +573,229 @@ class DataIngestor:
                         )
                         await self._log_finish(conn, log_id, "error", error=str(exc))
 
+                # After all resources for this year, derive demographic distributions
+                # from the cross-tabulation data loaded into snps_crosstabs
+                try:
+                    derived = await self._derive_demographic_distributions(conn, year)
+                    total_rows += derived
+                    logger.info("Derived %d demographic distribution rows for year=%d", derived, year)
+                except Exception as exc:  # noqa: BLE001
+                    logger.exception("Failed to derive demographics for year=%d: %s", year, exc)
+
         return IngestResult(dataset_key=dataset_key, status="success", rows_loaded=total_rows)
+
+    def _process_snps12_supplement(
+        self,
+        df: pd.DataFrame,
+        year: int,
+        snps01_questions: set[str],
+    ) -> pd.DataFrame | None:
+        """Extract base-population response distributions from snps12 for questions
+        not already loaded from snps01. Handles different schemas for 2021 vs 2023."""
+
+        if year == 2021:
+            # 2021 snps12: variable_name_2021, shr_w_resp_2021, total_w_resp_2021
+            if "variable_name_2021" not in df.columns:
+                return None
+            df = df[df.get("population_e", pd.Series(dtype=str)) == "All categories"]
+            df = df.rename(columns={
+                "variable_name_2021": "question",
+                "shr_w_resp_2021": "shr_w_resp",
+                "total_w_resp_2021": "total_w_resp",
+            })
+        elif year == 2023:
+            # 2023 snps12: same column names as snps01 but with extra population cols
+            if "question" not in df.columns:
+                return None
+            df = df[
+                (df.get("population_e", pd.Series(dtype=str)) == "All respondents") &
+                (df.get("population2_e", pd.Series(dtype=str)) == "All respondents") &
+                (df.get("population3_e", pd.Series(dtype=str)) == "All respondents")
+            ]
+        else:
+            return None
+
+        if df.empty:
+            return None
+
+        # Normalise question codes (uppercase + crosswalk)
+        if "question" in df.columns:
+            df = df.copy()
+            df["question"] = df["question"].str.upper().replace(self.SNPS_CODE_CROSSWALK)
+
+        # Keep only questions genuinely absent from snps01 for this year
+        df = df[~df["question"].isin(snps01_questions)]
+
+        if df.empty:
+            return None
+
+        # Filter out "All respondents" summary rows in question_value_e
+        if "question_value_e" in df.columns:
+            mask = df["question_value_e"].str.lower().str.contains(
+                r"all respondents|tous les r|all categories|toutes les cat", na=False, regex=True
+            )
+            df = df[~mask]
+
+        if "dept_e" in df.columns:
+            df["dept_e"] = df["dept_e"].replace(
+                {"Federal public service": "Federal Public Service"}
+            )
+        if "dept_f" in df.columns:
+            df["dept_f"] = df["dept_f"].replace(
+                {"Fonction Publique Fédérale": "Fonction publique fédérale"}
+            )
+
+        return df
+
+    def _process_crosstab(self, df: pd.DataFrame, year: int) -> pd.DataFrame | None:
+        """Process a snps02–snps24 cross-tabulation CSV into snps_crosstabs format.
+
+        Schema: dept_f, dept_e, [breakdown_var]_f, [breakdown_var]_e,
+                question, question_value_f, question_value_e, shr_w_resp, total_w_resp.
+        Retains 'All respondents' rows — they encode demographic composition counts.
+        """
+        KNOWN = {
+            "dept_f", "dept_e", "question",
+            "question_value_f", "question_value_e",
+            "shr_w_resp", "total_w_resp",
+        }
+        breakdown_cols = [c for c in df.columns if c not in KNOWN]
+        breakdown_e = next((c for c in breakdown_cols if c.endswith("_e")), None)
+        breakdown_f = next((c for c in breakdown_cols if c.endswith("_f")), None)
+
+        if breakdown_e is None:
+            logger.warning("_process_crosstab: no breakdown _e column found. Cols: %s", list(df.columns))
+            return None
+
+        raw_var = breakdown_e[:-2]  # strip trailing _e
+        canonical_var = self.SNPS_BREAKDOWN_COL_MAP.get(raw_var.lower(), raw_var.upper())
+
+        df = df.copy()
+
+        if "question" in df.columns:
+            df["question"] = df["question"].str.upper()
+            if year != 2025:
+                df["question"] = df["question"].replace(self.SNPS_CODE_CROSSWALK)
+
+        if "dept_e" in df.columns:
+            df["dept_e"] = df["dept_e"].replace({"Federal public service": "Federal Public Service"})
+        if "dept_f" in df.columns:
+            df["dept_f"] = df["dept_f"].replace({"Fonction Publique Fédérale": "Fonction publique fédérale"})
+
+        out = pd.DataFrame({
+            "dept_e":           df.get("dept_e"),
+            "dept_f":           df.get("dept_f"),
+            "breakdown_var":    canonical_var,
+            "breakdown_value_e": df[breakdown_e],
+            "breakdown_value_f": df[breakdown_f] if breakdown_f else None,
+            "question":         df.get("question"),
+            "question_value_e": df.get("question_value_e"),
+            "question_value_f": df.get("question_value_f"),
+            "shr_w_resp":       pd.to_numeric(df.get("shr_w_resp", pd.Series(dtype=float)), errors="coerce"),
+            "total_w_resp":     pd.to_numeric(df.get("total_w_resp", pd.Series(dtype=float)), errors="coerce"),
+        })
+
+        return out if not out.empty else None
+
+    async def _derive_demographic_distributions(self, conn: Any, year: int) -> int:
+        """Compute per-dept demographic composition from snps_crosstabs and insert into snps_responses.
+
+        For each breakdown_var (e.g. AGG_35), rows where question_value_e = 'All respondents'
+        hold the weighted respondent count for each demographic category. Dividing each
+        category count by the dept total gives the share, which is inserted as a survey
+        question into snps_responses (question = breakdown_var, question_value_e = category label).
+        Questions already present in snps_responses for that year/dept are skipped.
+        """
+        # Insert derived demographic distributions into snps_responses
+        result = conn.execute("""
+            WITH anchors AS (
+                SELECT
+                    year,
+                    dept_e,
+                    dept_f,
+                    breakdown_var,
+                    breakdown_value_e,
+                    breakdown_value_f,
+                    SUM(total_w_resp) AS cat_total
+                FROM snps_crosstabs
+                WHERE year = ?
+                  AND lower(question_value_e) LIKE '%all respondents%'
+                  AND total_w_resp IS NOT NULL
+                  AND total_w_resp > 0
+                  AND lower(breakdown_value_e) NOT LIKE 'all %'
+                GROUP BY year, dept_e, dept_f, breakdown_var, breakdown_value_e, breakdown_value_f
+            ),
+            with_dept_total AS (
+                SELECT *,
+                    SUM(cat_total) OVER (PARTITION BY year, dept_e, breakdown_var) AS dept_total
+                FROM anchors
+            )
+            INSERT INTO snps_responses
+                (year, dept_e, dept_f, question, question_value_e, question_value_f,
+                 shr_w_resp, total_w_resp, _loaded_at)
+            SELECT
+                year,
+                dept_e,
+                dept_f,
+                breakdown_var                           AS question,
+                breakdown_value_e                       AS question_value_e,
+                breakdown_value_f                       AS question_value_f,
+                cat_total / NULLIF(dept_total, 0)       AS shr_w_resp,
+                dept_total                              AS total_w_resp,
+                CURRENT_TIMESTAMP                       AS _loaded_at
+            FROM with_dept_total
+            WHERE dept_total > 0
+              AND NOT EXISTS (
+                SELECT 1 FROM snps_responses sr
+                WHERE sr.year    = with_dept_total.year
+                  AND sr.dept_e  = with_dept_total.dept_e
+                  AND sr.question = with_dept_total.breakdown_var
+              )
+        """, [year])
+        rows_added = result.rowcount if result.rowcount and result.rowcount > 0 else 0
+
+        # Ensure each derived breakdown_var has a row in snps_questions so it appears
+        # in the question selector. Use a synthetic "Demographics" category.
+        _DEMO_QUESTION_LABELS: dict[str, str] = {
+            "AGG_35":    "Age Group",
+            "FOL_05":    "First Official Language",
+            "GDR_10":    "Gender",
+            "GDR_FL":    "2SLGBTQIA+ Identity",
+            "GDR_11A":   "Sexual Orientation",
+            "GDR_11B":   "Gender Identity",
+            "DDIS_FL":   "Disability",
+            "DIS_01":    "Disability Type",
+            "VISMIN_FL": "Visible Minority",
+            "PG_05":     "Visible Minority Subgroup",
+            "IIDFLAG":   "Indigenous Identity",
+            "ABM_01":    "Indigenous Group",
+            "LAB_01":    "Region",
+            "ALL_D30A":  "Occupational Level",
+            "YRS_02":    "Years of Service",
+            "GEN_06":    "Employment Tenure",
+            "ED_01":     "Level of Education",
+            "PG_06":     "Marital Status",
+            "PG_07":     "Family Status",
+            "PG_08":     "Religion",
+        }
+
+        vars_in_year = conn.execute(
+            "SELECT DISTINCT breakdown_var FROM snps_crosstabs WHERE year = ?", [year]
+        ).fetchall()
+
+        for (var,) in vars_in_year:
+            already = conn.execute(
+                "SELECT 1 FROM snps_questions WHERE year = ? AND question = ?", [year, var]
+            ).fetchone()
+            if already:
+                continue
+            label = _DEMO_QUESTION_LABELS.get(var, var)
+            conn.execute(
+                """INSERT INTO snps_questions
+                   (year, question, category_e, category_f, theme_e, theme_f, question_e, question_f, _loaded_at)
+                   VALUES (?, ?, 'Demographic characteristics', 'Caractéristiques démographiques',
+                           'Demographic characteristics', 'Caractéristiques démographiques', ?, ?, CURRENT_TIMESTAMP)""",
+                [year, var, label, label],
+            )
+
+        return rows_added

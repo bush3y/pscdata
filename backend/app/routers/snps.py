@@ -32,16 +32,17 @@ async def get_snps_departments() -> list[str]:
 @router.get("/questions")
 async def get_snps_questions(year: int | None = None) -> list[dict]:
     """Return questions that have response data for the given year.
-    Always uses the latest snps_questions as metadata source (canonical 2025 codes).
-    Defaults to latest available response year."""
+    Uses browse-year snps_questions for metadata (correct themes/labels per year),
+    falling back to latest year for questions only introduced in later surveys.
+    Defaults to latest available response year when year param is omitted."""
     if year is None:
         rows = _q("SELECT MAX(year) AS y FROM snps_responses")
         year = rows[0]["y"] if rows else None
     if year is None:
         return []
-    # Use latest snps_questions as canonical metadata, but fall back to the
-    # browse year's own snps_questions for questions not found in the latest year
-    # (handles 2021/2023-only questions that were retired in later surveys).
+    # Use browse year's own snps_questions as primary metadata source so theme/label
+    # assignments reflect the actual survey year (e.g. 2023 demographic themes).
+    # Fall back to latest year's metadata for questions introduced later (not in browse year).
     meta_rows = _q("SELECT MAX(year) AS y FROM snps_questions")
     meta_year = meta_rows[0]["y"] if meta_rows else year
     return _q(
@@ -52,9 +53,9 @@ async def get_snps_questions(year: int | None = None) -> list[dict]:
         "SELECT q2.question, q2.category_e, q2.category_f, q2.theme_e, q2.theme_f, q2.question_e, q2.question_f "
         "FROM snps_questions q2 "
         "WHERE q2.year = ? AND EXISTS (SELECT 1 FROM snps_responses r WHERE r.question = q2.question AND r.year = ?) "
-        "  AND NOT EXISTS (SELECT 1 FROM snps_questions qlatest WHERE qlatest.year = ? AND qlatest.question = q2.question) "
+        "  AND NOT EXISTS (SELECT 1 FROM snps_questions qbrowse WHERE qbrowse.year = ? AND qbrowse.question = q2.question) "
         "ORDER BY question",
-        [meta_year, year, year, year, meta_year],
+        [year, year, meta_year, year, year],
     )
 
 
@@ -64,7 +65,9 @@ async def get_snps_responses(
     dept: str | None = None,
     year: int | None = None,
 ) -> list[dict]:
-    """Response distribution for a question. Returns dept + PS Total rows."""
+    """Response distribution for a question.
+    Always returns both the requested dept AND PS Total rows so the chart can
+    render a side-by-side comparison. Callers must not sum across all rows."""
     if year is None:
         rows = _q("SELECT MAX(year) AS y FROM snps_responses")
         year = rows[0]["y"] if rows else None

@@ -34,14 +34,14 @@ export const useSnpsDepartments = () =>
   useQuery<string[]>({
     queryKey: ['snps-departments'],
     queryFn: () => client.get('/snps/departments').then(r => r.data),
-    staleTime: 5 * 60_000,
+    staleTime: 60_000,
   });
 
 export const useSnpsQuestions = (year?: number) =>
   useQuery<SnpsQuestion[]>({
     queryKey: ['snps-questions', year],
     queryFn: () => client.get('/snps/questions', { params: year ? { year } : {} }).then(r => r.data),
-    staleTime: 5 * 60_000,
+    staleTime: 60_000,
   });
 
 export const useSnpsResponses = (question: string | null, dept: string | null, year?: number) =>

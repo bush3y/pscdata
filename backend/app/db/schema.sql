@@ -379,3 +379,22 @@ CREATE TABLE IF NOT EXISTS snps_response_profile (
     count          INTEGER,
     _loaded_at     TIMESTAMP DEFAULT current_timestamp
 );
+
+-- Cross-tabulation data from snps02–snps24: response distributions broken down by demographic variable.
+-- breakdown_var: canonical question code for the segmentation dimension (e.g. AGG_35, FOL_05, GDR_10)
+-- breakdown_value_e/f: the specific category within that dimension (e.g. "25 to 29 years", "All respondents")
+-- question / question_value_e/f: the survey question and response option being cross-tabulated
+CREATE TABLE IF NOT EXISTS snps_crosstabs (
+    year               INTEGER NOT NULL,
+    dept_e             VARCHAR,
+    dept_f             VARCHAR,
+    breakdown_var      VARCHAR NOT NULL,
+    breakdown_value_e  VARCHAR,
+    breakdown_value_f  VARCHAR,
+    question           VARCHAR NOT NULL,
+    question_value_e   VARCHAR,
+    question_value_f   VARCHAR,
+    shr_w_resp         DOUBLE,
+    total_w_resp       DOUBLE,
+    _loaded_at         TIMESTAMP DEFAULT current_timestamp
+);
