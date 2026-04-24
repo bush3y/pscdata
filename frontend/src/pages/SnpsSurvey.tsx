@@ -164,15 +164,15 @@ function DumbbellRow({
   const maxPct = Math.max(pctA, pctB);
   const gap    = maxPct - minPct;
 
-  // Key insight: always put colorA label LEFT of tick A, colorB label RIGHT of tick B.
-  // They face outward from each other so they never collide, even when ticks are adjacent.
-  // Edge case: if tick A is near 100%, flip its label to the right; if B is near 0%, flip left.
-  const aLabelRight = pctA > 92;  // too close to right edge — put A label on right instead
-  const bLabelLeft  = pctB < 8;   // too close to left edge — put B label on left instead
+  // Labels face outward from their tick (A left, B right).
+  // But if a tick is too close to its natural label's overflow edge, we move
+  // that label above or below centre so it doesn't bleed into the label column.
+  const aAbove = pctA < 12;   // A tick near left — can't go further left; put label above
+  const bBelow = pctB > 88;   // B tick near right — would overflow right; put label below
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', marginBottom: 5 }}>
-      {/* Category label — nowrap + ellipsis prevents row-height growth from wrapping */}
+      {/* Category label — single line, ellipsis on overflow */}
       <div style={{
         width: labelWidth, flexShrink: 0, textAlign: 'right', paddingRight: 10,
         fontSize: 10.5, color: isPositive ? '#374151' : '#9ca3af',
@@ -182,8 +182,8 @@ function DumbbellRow({
         {label}
       </div>
 
-      {/* Track */}
-      <div style={{ flex: 1, position: 'relative', height: 26, overflow: 'visible' }}>
+      {/* Track — height 32 to give room for above/below labels */}
+      <div style={{ flex: 1, position: 'relative', height: 32, overflow: 'visible' }}>
         {/* Dotted guide line */}
         <div style={{
           position: 'absolute', top: '50%', left: 0, right: 0,
@@ -198,38 +198,54 @@ function DumbbellRow({
             height: 1.5, background: '#d1d5db', transform: 'translateY(-50%)',
           }} />
         )}
-        {/* Tick A (grey / earlier year / PS Total) */}
+        {/* Tick A */}
         <div style={{
           position: 'absolute', top: '50%', left: `${pctA}%`,
           transform: 'translate(-50%, -50%)',
           width: 2, height: 16, background: colorA, borderRadius: 1,
         }} />
-        {/* Tick B (orange / latest year / dept) */}
+        {/* Tick B */}
         <div style={{
           position: 'absolute', top: '50%', left: `${pctB}%`,
           transform: 'translate(-50%, -50%)',
           width: 2, height: 16, background: colorB, borderRadius: 1,
         }} />
 
-        {/* Label A — always outward from tick A */}
-        <div style={{
-          position: 'absolute', top: '50%',
-          ...(aLabelRight
-            ? { left: `${pctA}%`, paddingLeft: 5 }
-            : { right: `${100 - pctA}%`, paddingRight: 5 }),
-          transform: 'translateY(-50%)',
-          fontSize: 10.5, color: colorA, fontWeight: 600, whiteSpace: 'nowrap',
-        }}>{pctA}%</div>
+        {/* Label A */}
+        {aAbove ? (
+          // Above centre, centred on tick — avoids left overflow
+          <div style={{
+            position: 'absolute', bottom: '50%', left: `${pctA}%`,
+            transform: 'translate(-50%, -3px)',
+            fontSize: 10.5, color: colorA, fontWeight: 600, whiteSpace: 'nowrap',
+          }}>{pctA}%</div>
+        ) : (
+          // Normal: to the left of tick A
+          <div style={{
+            position: 'absolute', top: '50%',
+            right: `${100 - pctA}%`, paddingRight: 5,
+            transform: 'translateY(-50%)',
+            fontSize: 10.5, color: colorA, fontWeight: 600, whiteSpace: 'nowrap',
+          }}>{pctA}%</div>
+        )}
 
-        {/* Label B — always outward from tick B */}
-        <div style={{
-          position: 'absolute', top: '50%',
-          ...(bLabelLeft
-            ? { right: `${100 - pctB}%`, paddingRight: 5 }
-            : { left: `${pctB}%`, paddingLeft: 5 }),
-          transform: 'translateY(-50%)',
-          fontSize: 10.5, color: colorB, fontWeight: 700, whiteSpace: 'nowrap',
-        }}>{pctB}%</div>
+        {/* Label B */}
+        {bBelow ? (
+          // Below centre, centred on tick — avoids right overflow
+          <div style={{
+            position: 'absolute', top: '50%', left: `${pctB}%`,
+            transform: 'translate(-50%, 3px)',
+            fontSize: 10.5, color: colorB, fontWeight: 700, whiteSpace: 'nowrap',
+          }}>{pctB}%</div>
+        ) : (
+          // Normal: to the right of tick B
+          <div style={{
+            position: 'absolute', top: '50%',
+            left: `${pctB}%`, paddingLeft: 5,
+            transform: 'translateY(-50%)',
+            fontSize: 10.5, color: colorB, fontWeight: 700, whiteSpace: 'nowrap',
+          }}>{pctB}%</div>
+        )}
       </div>
     </div>
   );
@@ -239,7 +255,7 @@ type CompareMode = 'dept' | 'year';
 
 function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string | null }) {
   const isMobile   = useIsMobile();
-  const labelWidth = isMobile ? 82 : 140;
+  const labelWidth = isMobile ? 96 : 140;
   const axisTicks  = isMobile ? [0, 50, 100] : [0, 25, 50, 75, 100];
   const gridLines  = isMobile ? [50] : [25, 50, 75];
 
