@@ -466,9 +466,9 @@ function DeptRankingChart({
   };
 
   return (
-    <div style={{ marginTop: 28 }}>
+    <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>How departments compare</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', letterSpacing: '-0.01em' }}>How departments compare</div>
         {highlightRank !== null && (
           <div style={{ fontSize: 12, color: '#6b7280' }}>
             <span style={{ color: '#1d3557', fontWeight: 700 }}>
@@ -785,78 +785,86 @@ export default function SnpsSurvey() {
               Select a question from the list to see responses
             </div>
           ) : (
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: isMobile ? '16px' : '20px 24px', background: '#fff' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-              {/* Mobile back button */}
-              {isMobile && (
-                <button
-                  onClick={() => setSelectedQuestion(null)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: '#1d3557', fontSize: 13, fontWeight: 600,
-                    padding: '0 0 14px', marginBottom: 4,
-                  }}
-                >
-                  ← Back to questions
-                </button>
-              )}
+              {/* ── Section 1: Context — dept selector, nav, question header ── */}
+              <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: isMobile ? '14px 16px' : '16px 20px', background: '#fff' }}>
 
-              {/* Dept selector */}
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Department</div>
-                <DeptSelector value={selectedDept} onChange={setSelectedDept} />
+                {/* Mobile back button */}
+                {isMobile && (
+                  <button
+                    onClick={() => setSelectedQuestion(null)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: '#1d3557', fontSize: 13, fontWeight: 600,
+                      padding: '0 0 14px', marginBottom: 4,
+                    }}
+                  >
+                    ← Back to questions
+                  </button>
+                )}
+
+                {/* Dept selector */}
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Department</div>
+                  <DeptSelector value={selectedDept} onChange={setSelectedDept} />
+                </div>
+
+                {/* Prev / Next navigation */}
+                {currentIdx >= 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
+                    <button
+                      onClick={() => prevQ && setSelectedQuestion(prevQ.question)}
+                      disabled={!prevQ}
+                      style={{
+                        padding: '4px 10px', fontSize: 12, borderRadius: 5, cursor: prevQ ? 'pointer' : 'default',
+                        border: '1px solid #e5e7eb', background: '#fff',
+                        color: prevQ ? '#374151' : '#d1d5db',
+                      }}
+                    >← Prev</button>
+                    <span style={{ flex: 1, textAlign: 'center', fontSize: 11, color: '#6b7280' }}>
+                      {currentIdx + 1} of {orderedQuestions.length}
+                    </span>
+                    <button
+                      onClick={() => nextQ && setSelectedQuestion(nextQ.question)}
+                      disabled={!nextQ}
+                      style={{
+                        padding: '4px 10px', fontSize: 12, borderRadius: 5, cursor: nextQ ? 'pointer' : 'default',
+                        border: '1px solid #e5e7eb', background: '#fff',
+                        color: nextQ ? '#374151' : '#d1d5db',
+                      }}
+                    >Next →</button>
+                  </div>
+                )}
+
+                {/* Question header */}
+                {questionMeta && (
+                  <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 12 }}>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: '#eef4fb', color: '#1d3557', fontWeight: 600 }}>
+                        {questionMeta.theme_e}
+                      </span>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: '#f3f4f6', color: '#6b7280' }}>
+                        {respondentGroup(selectedQuestion)}
+                      </span>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: '#f3f4f6', color: '#6b7280' }}>
+                        {selectedQuestion}
+                      </span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#111827', lineHeight: 1.5 }}>
+                      {questionMeta.question_e}
+                    </p>
+                    {questionMeta.category_e && (
+                      <p style={{ margin: '4px 0 0', fontSize: 12, color: '#6b7280' }}>{questionMeta.category_e}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Prev / Next navigation */}
-              {currentIdx >= 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
-                  <button
-                    onClick={() => prevQ && setSelectedQuestion(prevQ.question)}
-                    disabled={!prevQ}
-                    style={{
-                      padding: '4px 10px', fontSize: 12, borderRadius: 5, cursor: prevQ ? 'pointer' : 'default',
-                      border: '1px solid #e5e7eb', background: '#fff',
-                      color: prevQ ? '#374151' : '#d1d5db',
-                    }}
-                  >← Prev</button>
-                  <span style={{ flex: 1, textAlign: 'center', fontSize: 11, color: '#6b7280' }}>
-                    {currentIdx + 1} of {orderedQuestions.length}
-                  </span>
-                  <button
-                    onClick={() => nextQ && setSelectedQuestion(nextQ.question)}
-                    disabled={!nextQ}
-                    style={{
-                      padding: '4px 10px', fontSize: 12, borderRadius: 5, cursor: nextQ ? 'pointer' : 'default',
-                      border: '1px solid #e5e7eb', background: '#fff',
-                      color: nextQ ? '#374151' : '#d1d5db',
-                    }}
-                  >Next →</button>
-                </div>
-              )}
-
-              {/* Question header */}
-              {questionMeta && (
-                <div style={{ marginBottom: 16, paddingTop: 4, borderTop: '1px solid #f3f4f6' }}>
-                  <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: '#eef4fb', color: '#1d3557', fontWeight: 600 }}>
-                      {questionMeta.theme_e}
-                    </span>
-                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: '#f3f4f6', color: '#6b7280' }}>
-                      {respondentGroup(selectedQuestion)}
-                    </span>
-                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: '#f3f4f6', color: '#6b7280' }}>
-                      {selectedQuestion}
-                    </span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#111827', lineHeight: 1.5 }}>
-                    {questionMeta.question_e}
-                  </p>
-                  {questionMeta.category_e && (
-                    <p style={{ margin: '4px 0 0', fontSize: 12, color: '#6b7280' }}>{questionMeta.category_e}</p>
-                  )}
-                </div>
-              )}
+              {/* ── Section 2: Response distribution ── */}
+              <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: isMobile ? '14px 16px' : '16px 20px', background: '#fff' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 14, letterSpacing: '-0.01em' }}>Response distribution</div>
 
               {/* Positive score summary — CSS grid so year columns align across both rows */}
               {isScored && psScoreByYear.length > 0 && (() => {
@@ -923,8 +931,10 @@ export default function SnpsSurvey() {
                   Note: 2021/2023 demographic distributions are derived from cross-tabulation data and include all respondent types (employees, managers, and advisors). Department-level figures may differ from PSC's published values, which show employees only. 2025 data comes directly from the survey source and is accurate.
                 </div>
               )}
+              </div>
 
-              {/* Dept ranking chart */}
+              {/* ── Section 3: Dept ranking ── */}
+              <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: isMobile ? '14px 16px' : '16px 20px', background: '#fff' }}>
               <DeptRankingChart
                 question={selectedQuestion}
                 years={years}
@@ -932,6 +942,7 @@ export default function SnpsSurvey() {
                 qType={qType}
                 trend={trend}
               />
+              </div>
             </div>
           )}
         </div>
