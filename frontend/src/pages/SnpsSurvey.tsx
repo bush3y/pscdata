@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -14,6 +14,16 @@ import {
   type SnpsQuestion,
   type SnpsResponseRow,
 } from '../api/snps';
+
+// ── Responsive hook ──────────────────────────────────────────────────────────
+
+function useIsMobile(breakpoint = 768) {
+  return useSyncExternalStore(
+    cb => { window.addEventListener('resize', cb); return () => window.removeEventListener('resize', cb); },
+    () => window.innerWidth < breakpoint,
+    () => false,
+  );
+}
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -703,6 +713,12 @@ export default function SnpsSurvey() {
       }))
     : null;
 
+  const isMobile = useIsMobile();
+
+  // On mobile, treat selecting a question as navigating to the detail view
+  const showList   = !isMobile || !selectedQuestion;
+  const showDetail = !isMobile || !!selectedQuestion;
+
   return (
     <div>
       <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>
@@ -713,48 +729,55 @@ export default function SnpsSurvey() {
         PSC surveys — {years.join(', ')}.
       </p>
 
-      {/* Two-column layout */}
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+      {/* Layout: two-column on desktop, single-column on mobile */}
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexDirection: isMobile ? 'column' : 'row' }}>
 
         {/* Left: question browser */}
-        <div style={{
-          width: 280, flexShrink: 0,
-          border: '1px solid #e5e7eb', borderRadius: 8,
-          background: '#fafafa',
-          maxHeight: 'calc(100vh - 200px)',
-          overflowY: 'auto',
-          position: 'sticky', top: 16,
-        }}>
-          <div style={{ padding: '10px 12px 8px', borderBottom: '1px solid #e5e7eb' }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-              Survey year
+        {showList && (
+          <div style={{
+            width: isMobile ? '100%' : 280, flexShrink: 0,
+            border: '1px solid #e5e7eb', borderRadius: 8,
+            background: '#fafafa',
+            maxHeight: isMobile ? 'none' : 'calc(100vh - 200px)',
+            overflowY: isMobile ? 'visible' : 'auto',
+            position: isMobile ? 'static' : 'sticky', top: 16,
+          }}>
+            <div style={{ padding: '10px 12px 8px', borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                Survey year
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {years.map(y => (
+                  <button
+                    key={y}
+                    onClick={() => setBrowseYear(y === effectiveBrowseYear ? null : y)}
+                    style={{
+                      padding: '3px 10px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
+                      border: '1px solid',
+                      borderColor: effectiveBrowseYear === y ? '#1d3557' : '#e5e7eb',
+                      background: effectiveBrowseYear === y ? '#1d3557' : '#fff',
+                      color: effectiveBrowseYear === y ? '#fff' : '#6b7280',
+                    }}
+                  >{y}</button>
+                ))}
+              </div>
+              <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 6 }}>{questions.length} questions</div>
             </div>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {years.map(y => (
-                <button
-                  key={y}
-                  onClick={() => setBrowseYear(y === effectiveBrowseYear ? null : y)}
-                  style={{
-                    padding: '3px 10px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
-                    border: '1px solid',
-                    borderColor: effectiveBrowseYear === y ? '#1d3557' : '#e5e7eb',
-                    background: effectiveBrowseYear === y ? '#1d3557' : '#fff',
-                    color: effectiveBrowseYear === y ? '#fff' : '#6b7280',
-                  }}
-                >{y}</button>
-              ))}
-            </div>
-            <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 6 }}>{questions.length} questions</div>
+            {questions.length === 0 ? (
+              <div style={{ padding: 16, fontSize: 13, color: '#9ca3af' }}>No data — trigger ingestion first.</div>
+            ) : (
+              <QuestionList questions={questions} selected={selectedQuestion} onSelect={q => {
+                setSelectedQuestion(q);
+                // On mobile, scroll to top so the detail view starts at the top
+                if (isMobile) window.scrollTo({ top: 0, behavior: 'smooth' });
+              }} />
+            )}
           </div>
-          {questions.length === 0 ? (
-            <div style={{ padding: 16, fontSize: 13, color: '#9ca3af' }}>No data — trigger ingestion first.</div>
-          ) : (
-            <QuestionList questions={questions} selected={selectedQuestion} onSelect={setSelectedQuestion} />
-          )}
-        </div>
+        )}
 
         {/* Right: question detail */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        {showDetail && (
+        <div style={{ flex: 1, minWidth: 0, width: isMobile ? '100%' : undefined }}>
           {!selectedQuestion ? (
             <div style={{
               border: '1px solid #e5e7eb', borderRadius: 8, padding: '48px 32px',
@@ -763,7 +786,22 @@ export default function SnpsSurvey() {
               Select a question from the list to see responses
             </div>
           ) : (
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '20px 24px', background: '#fff' }}>
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: isMobile ? '16px' : '20px 24px', background: '#fff' }}>
+
+              {/* Mobile back button */}
+              {isMobile && (
+                <button
+                  onClick={() => setSelectedQuestion(null)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: '#1d3557', fontSize: 13, fontWeight: 600,
+                    padding: '0 0 14px', marginBottom: 4,
+                  }}
+                >
+                  ← Back to questions
+                </button>
+              )}
 
               {/* Dept selector */}
               <div style={{ marginBottom: 16 }}>
@@ -853,6 +891,7 @@ export default function SnpsSurvey() {
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
   );
