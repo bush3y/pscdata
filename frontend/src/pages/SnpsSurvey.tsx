@@ -873,17 +873,22 @@ export default function SnpsSurvey() {
                         {label.length > (isMobile ? 10 : 12) ? label.slice(0, isMobile ? 10 : 12) + '…' : label}
                       </span>
                       <span style={{ display: 'flex', alignItems: 'baseline', gap: isMobile ? 6 : 8, flexWrap: 'nowrap' }}>
-                        {rowScores.map((s, i) => (
-                          <span key={s.year} style={{ display: 'flex', alignItems: 'baseline', gap: 3, flexShrink: 0 }}>
-                            <span style={{ fontSize: 10, color: '#9ca3af' }}>{s.year}</span>
-                            <span style={{ fontSize: isMobile ? 14 : 16, fontWeight: 700, color }}>{s.score}%</span>
-                            {i < rowScores.length - 1 && (
-                              <span style={{ fontSize: 10, color: rowScores[i + 1].score !== s.score ? (rowScores[i + 1].score > s.score ? '#15803d' : '#dc2626') : '#9ca3af' }}>
-                                {rowScores[i + 1].score > s.score ? '↑' : rowScores[i + 1].score < s.score ? '↓' : '—'}
-                              </span>
-                            )}
-                          </span>
-                        ))}
+                        {rowScores.map((s, i) => {
+                          const prev = i > 0 ? rowScores[i - 1] : null;
+                          const arrowColor = prev
+                            ? (s.score > prev.score ? '#15803d' : s.score < prev.score ? '#dc2626' : '#9ca3af')
+                            : '#9ca3af';
+                          const arrow = prev
+                            ? (s.score > prev.score ? '↑' : s.score < prev.score ? '↓' : '—')
+                            : null;
+                          return (
+                            <span key={s.year} style={{ display: 'flex', alignItems: 'baseline', gap: 3, flexShrink: 0 }}>
+                              <span style={{ fontSize: 10, color: '#9ca3af' }}>{s.year}</span>
+                              {arrow && <span style={{ fontSize: 10, color: arrowColor }}>{arrow}</span>}
+                              <span style={{ fontSize: isMobile ? 14 : 16, fontWeight: 700, color }}>{s.score}%</span>
+                            </span>
+                          );
+                        })}
                       </span>
                     </div>
                   ))}
