@@ -858,43 +858,53 @@ export default function SnpsSurvey() {
                 </div>
               )}
 
-              {/* Positive score summary */}
-              {isScored && psScoreByYear.length > 0 && (
-                <div style={{ marginBottom: 16 }}>
-                  {[
-                    { scores: psScoreByYear, label: 'PS Total', color: '#1d3557' },
-                    ...(deptScoreByYear ? [{ scores: deptScoreByYear, label: selectedDept ?? '', color: COLOR_B }] : []),
-                  ].map(({ scores: rowScores, label, color }) => (
-                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <div style={{
-                        fontSize: 11, color: '#6b7280', flexShrink: 0,
-                        maxWidth: isMobile ? 90 : 110,
-                        display: '-webkit-box', WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                        lineHeight: 1.35,
-                      }}>{label}</div>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: isMobile ? 6 : 8, flexWrap: 'wrap' }}>
-                        {rowScores.map((s, i) => {
-                          const prev = i > 0 ? rowScores[i - 1] : null;
-                          const arrowColor = prev
-                            ? (s.score > prev.score ? '#15803d' : s.score < prev.score ? '#dc2626' : '#9ca3af')
-                            : '#9ca3af';
-                          const arrow = prev
-                            ? (s.score > prev.score ? '↑' : s.score < prev.score ? '↓' : '—')
+              {/* Positive score summary — CSS grid so year columns align across both rows */}
+              {isScored && psScoreByYear.length > 0 && (() => {
+                const summaryYears = psScoreByYear.map(s => s.year);
+                const summaryRows = [
+                  { scores: psScoreByYear, label: 'PS Total', color: '#1d3557' },
+                  ...(deptScoreByYear ? [{ scores: deptScoreByYear, label: selectedDept ?? '', color: COLOR_B }] : []),
+                ];
+                const labelColWidth = isMobile ? 90 : 110;
+                return (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: `${labelColWidth}px ${summaryYears.map(() => '1fr').join(' ')}`,
+                    rowGap: 6,
+                    marginBottom: 16,
+                    alignItems: 'center',
+                  }}>
+                    {summaryRows.map(({ scores: rowScores, label, color }) => (
+                      <>
+                        <div key={`${label}-lbl`} style={{
+                          fontSize: 11, color: '#6b7280', paddingRight: 8, lineHeight: 1.35,
+                          display: '-webkit-box', WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                        }}>{label}</div>
+                        {summaryYears.map((y, i) => {
+                          const s = rowScores.find(r => r.year === y);
+                          const prevS = i > 0 ? rowScores.find(r => r.year === summaryYears[i - 1]) : null;
+                          const arrow = prevS && s
+                            ? (s.score > prevS.score ? '↑' : s.score < prevS.score ? '↓' : '—')
                             : null;
+                          const arrowColor = prevS && s
+                            ? (s.score > prevS.score ? '#15803d' : s.score < prevS.score ? '#dc2626' : '#9ca3af')
+                            : '#9ca3af';
                           return (
-                            <span key={s.year} style={{ display: 'flex', alignItems: 'baseline', gap: 3, flexShrink: 0 }}>
-                              <span style={{ fontSize: 10, color: '#9ca3af' }}>{s.year}</span>
+                            <div key={`${label}-${y}`} style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                              <span style={{ fontSize: 10, color: '#9ca3af' }}>{y}</span>
                               {arrow && <span style={{ fontSize: 10, color: arrowColor }}>{arrow}</span>}
-                              <span style={{ fontSize: isMobile ? 14 : 16, fontWeight: 700, color }}>{s.score}%</span>
-                            </span>
+                              <span style={{ fontSize: isMobile ? 14 : 16, fontWeight: 700, color }}>
+                                {s != null ? `${s.score}%` : '—'}
+                              </span>
+                            </div>
                           );
                         })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                      </>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {/* Dumbbell distribution chart */}
 
