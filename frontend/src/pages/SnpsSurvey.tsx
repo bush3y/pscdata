@@ -207,20 +207,33 @@ function DumbbellRow({
             transform: 'translate(-50%, -50%)',
             width: 2, height: 16, background: colorB, borderRadius: 1,
           }} />
-          {/* Label A — always to the LEFT of tick A, overflows into left buffer */}
-          <div style={{
-            position: 'absolute', top: '50%',
-            right: `${100 - pctA}%`, paddingRight: 5,
-            transform: 'translateY(-50%)',
-            fontSize: 10.5, color: colorA, fontWeight: 600, whiteSpace: 'nowrap',
-          }}>{pctA}%</div>
-          {/* Label B — always to the RIGHT of tick B, overflows into right buffer */}
-          <div style={{
-            position: 'absolute', top: '50%',
-            left: `${pctB}%`, paddingLeft: 5,
-            transform: 'translateY(-50%)',
-            fontSize: 10.5, color: colorB, fontWeight: 700, whiteSpace: 'nowrap',
-          }}>{pctB}%</div>
+          {/* Labels — each faces OUTWARD from the connection.
+              If A is the left tick, A label goes left and B label goes right.
+              If A is the right tick (pctA > pctB), flip: A label goes right, B label goes left.
+              With the buffer margins, even 0% and 100% values have room. */}
+          {(() => {
+            const aIsLeft = pctA <= pctB;
+            return (
+              <>
+                <div style={{
+                  position: 'absolute', top: '50%',
+                  ...(aIsLeft
+                    ? { right: `${100 - pctA}%`, paddingRight: 5 }
+                    : { left: `${pctA}%`, paddingLeft: 5 }),
+                  transform: 'translateY(-50%)',
+                  fontSize: 10.5, color: colorA, fontWeight: 600, whiteSpace: 'nowrap',
+                }}>{pctA}%</div>
+                <div style={{
+                  position: 'absolute', top: '50%',
+                  ...(aIsLeft
+                    ? { left: `${pctB}%`, paddingLeft: 5 }
+                    : { right: `${100 - pctB}%`, paddingRight: 5 }),
+                  transform: 'translateY(-50%)',
+                  fontSize: 10.5, color: colorB, fontWeight: 700, whiteSpace: 'nowrap',
+                }}>{pctB}%</div>
+              </>
+            );
+          })()}
         </div>
       </div>
     </div>
