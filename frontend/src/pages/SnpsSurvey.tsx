@@ -918,6 +918,11 @@ export default function SnpsSurvey() {
                 Values shown as % of respondents.
                 {isScored ? ' "Positive" = To a great extent + To a moderate extent (or Yes).' : ''}
               </div>
+              {questionMeta?.theme_e === 'Demographic characteristics' && trendYears.some(y => y < 2025) && (
+                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4, fontStyle: 'italic' }}>
+                  Note: 2021/2023 demographic distributions are derived from cross-tabulation data and include all respondent types (employees, managers, and advisors). Department-level figures may differ from PSC's published values, which show employees only. 2025 data comes directly from the survey source and is accurate.
+                </div>
+              )}
 
               {/* Dept ranking chart */}
               <DeptRankingChart
