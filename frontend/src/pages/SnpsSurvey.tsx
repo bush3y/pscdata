@@ -270,9 +270,7 @@ function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string
 
   const colorA = COLOR_A, colorB = COLOR_B;
   const labelA = effectiveMode === 'dept' ? 'PS Total' : String(prevYear ?? years[0]);
-  const labelB = effectiveMode === 'dept'
-    ? (deptLabel.length > (isMobile ? 22 : 30) ? deptLabel.slice(0, isMobile ? 22 : 30) + '…' : deptLabel)
-    : String(latestYear);
+  const labelB = effectiveMode === 'dept' ? deptLabel : String(latestYear);
 
   const chartRows = values.map(v => {
     let pctA = 0, pctB = 0;
@@ -864,15 +862,9 @@ export default function SnpsSurvey() {
                     { scores: psScoreByYear, label: 'PS Total', color: '#1d3557' },
                     ...(deptScoreByYear ? [{ scores: deptScoreByYear, label: selectedDept ?? '', color: COLOR_B }] : []),
                   ].map(({ scores: rowScores, label, color }) => (
-                    <div key={label} style={{ display: 'flex', alignItems: 'baseline', gap: 0, marginBottom: 4, flexWrap: 'nowrap', overflow: 'hidden' }}>
-                      <span style={{
-                        fontSize: 11, color: '#6b7280', flexShrink: 0,
-                        width: isMobile ? 72 : 80,
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }} title={label}>
-                        {label.length > (isMobile ? 10 : 12) ? label.slice(0, isMobile ? 10 : 12) + '…' : label}
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'baseline', gap: isMobile ? 6 : 8, flexWrap: 'nowrap' }}>
+                    <div key={label} style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}>{label}</div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: isMobile ? 6 : 8, flexWrap: 'wrap' }}>
                         {rowScores.map((s, i) => {
                           const prev = i > 0 ? rowScores[i - 1] : null;
                           const arrowColor = prev
@@ -889,7 +881,7 @@ export default function SnpsSurvey() {
                             </span>
                           );
                         })}
-                      </span>
+                      </div>
                     </div>
                   ))}
                 </div>
