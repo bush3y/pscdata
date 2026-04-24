@@ -893,7 +893,7 @@ export default function SnpsSurvey() {
                           return (
                             <div key={`${label}-${y}`} style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
                               <span style={{ fontSize: 10, color: '#9ca3af' }}>{y}</span>
-                              {arrow && <span style={{ fontSize: 10, color: arrowColor }}>{arrow}</span>}
+                              <span style={{ fontSize: 10, color: arrowColor, visibility: arrow ? 'visible' : 'hidden' }}>{arrow ?? '↑'}</span>
                               <span style={{ fontSize: isMobile ? 14 : 16, fontWeight: 700, color }}>
                                 {s != null ? `${s.score}%` : '—'}
                               </span>
