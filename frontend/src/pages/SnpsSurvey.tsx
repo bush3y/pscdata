@@ -141,149 +141,199 @@ function DeptSelector({ value, onChange }: { value: string | null; onChange: (v:
 
 // ── Dumbbell chart ────────────────────────────────────────────────────────────
 
-const COLOR_A = '#9ca3af'; // PS Total or earlier year
-const COLOR_B = '#1d3557'; // selected dept or latest year
+const COLOR_A = '#b0b7c3'; // PS Total or earlier year
+const COLOR_B = '#e07b39'; // selected dept or latest year  (warm orange, like NYT)
 
 function DumbbellRow({
-  label, pctA, pctB, isPositive,
+  label, pctA, pctB, colorA, colorB, isPositive,
 }: {
-  label: string; pctA: number; pctB: number; isPositive: boolean;
+  label: string; pctA: number; pctB: number;
+  colorA: string; colorB: string; isPositive: boolean;
 }) {
-  const gap = Math.abs(pctB - pctA);
-  const left  = Math.min(pctA, pctB);
-  const right = Math.max(pctA, pctB);
-  const aIsLeft = pctA <= pctB;
+  const minPct   = Math.min(pctA, pctB);
+  const maxPct   = Math.max(pctA, pctB);
+  const aIsLeft  = pctA <= pctB;
+  const leftPct  = aIsLeft ? pctA : pctB;
+  const rightPct = aIsLeft ? pctB : pctA;
+  const leftColor  = aIsLeft ? colorA : colorB;
+  const rightColor = aIsLeft ? colorB : colorA;
+  const gap = maxPct - minPct;
 
-  // Avoid label overlap: if within 8pp, stagger above/below more aggressively
-  const tooClose = gap < 9;
+  // When ticks overlap (< 5pp), stack both labels vertically above the tick
+  const overlapping = gap < 5;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-      {/* Label */}
+    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+      {/* Category label */}
       <div style={{
-        width: 148, flexShrink: 0, textAlign: 'right', paddingRight: 12,
-        fontSize: 12, color: isPositive ? '#374151' : '#6b7280',
+        width: 148, flexShrink: 0, textAlign: 'right', paddingRight: 14,
+        fontSize: 12, color: isPositive ? '#374151' : '#9ca3af',
         fontWeight: isPositive ? 600 : 400, lineHeight: 1.3,
       }}>
         {label}
       </div>
 
-      {/* Track */}
-      <div style={{ flex: 1, position: 'relative', height: 36 }}>
-        {/* Full guide line */}
+      {/* Track — overflow visible so inline labels can extend slightly outside */}
+      <div style={{ flex: 1, position: 'relative', height: 28, overflow: 'visible' }}>
+
+        {/* Full dotted guide line */}
         <div style={{
           position: 'absolute', top: '50%', left: 0, right: 0,
-          height: 1, background: '#f0f0f0', transform: 'translateY(-50%)',
-        }} />
-        {/* Segment between the two dots */}
-        <div style={{
-          position: 'absolute', top: '50%',
-          left: `${left}%`, width: `${right - left}%`,
-          height: 2, background: '#e5e7eb', transform: 'translateY(-50%)',
+          borderTop: '1px dashed #e5e7eb', transform: 'translateY(-50%)',
+          pointerEvents: 'none',
         }} />
 
-        {/* Dot A */}
+        {/* Solid connector between the two ticks */}
+        {!overlapping && (
+          <div style={{
+            position: 'absolute', top: '50%',
+            left: `${minPct}%`, width: `${maxPct - minPct}%`,
+            height: 1.5, background: '#d1d5db', transform: 'translateY(-50%)',
+          }} />
+        )}
+
+        {/* Tick A */}
         <div style={{
           position: 'absolute', top: '50%', left: `${pctA}%`,
           transform: 'translate(-50%, -50%)',
-          width: 9, height: 9, borderRadius: '50%',
-          background: COLOR_A, border: '2px solid #fff',
-          boxShadow: `0 0 0 1.5px ${COLOR_A}`,
-          zIndex: 2,
+          width: 2, height: 16, background: colorA, borderRadius: 1,
         }} />
-        {/* Label A — above if A is left, below if A is right */}
-        <div style={{
-          position: 'absolute',
-          top: aIsLeft ? (tooClose ? 0 : 2) : (tooClose ? undefined : undefined),
-          bottom: aIsLeft ? undefined : (tooClose ? 0 : 2),
-          left: `${pctA}%`,
-          transform: 'translateX(-50%)',
-          fontSize: 10.5, color: COLOR_A, fontWeight: 600,
-          whiteSpace: 'nowrap', lineHeight: 1,
-        }}>
-          {pctA}%
-        </div>
 
-        {/* Dot B */}
+        {/* Tick B */}
         <div style={{
           position: 'absolute', top: '50%', left: `${pctB}%`,
           transform: 'translate(-50%, -50%)',
-          width: 9, height: 9, borderRadius: '50%',
-          background: COLOR_B, border: '2px solid #fff',
-          boxShadow: `0 0 0 1.5px ${COLOR_B}`,
-          zIndex: 2,
+          width: 2, height: 16, background: colorB, borderRadius: 1,
         }} />
-        {/* Label B — below if B is right, above if B is left */}
-        <div style={{
-          position: 'absolute',
-          bottom: aIsLeft ? (tooClose ? 0 : 2) : (tooClose ? undefined : undefined),
-          top: aIsLeft ? undefined : (tooClose ? 0 : 2),
-          left: `${pctB}%`,
-          transform: 'translateX(-50%)',
-          fontSize: 10.5, color: COLOR_B, fontWeight: 700,
-          whiteSpace: 'nowrap', lineHeight: 1,
-        }}>
-          {pctB}%
-        </div>
+
+        {/* Labels — inline to the outside of the connector, like NYT */}
+        {overlapping ? (
+          // Stack them vertically when too close
+          <>
+            <div style={{
+              position: 'absolute', bottom: '50%', left: `${(leftPct + rightPct) / 2}%`,
+              transform: 'translateX(-50%)', paddingBottom: 10,
+              fontSize: 10.5, color: leftColor, fontWeight: 700, whiteSpace: 'nowrap',
+            }}>{leftPct}%</div>
+            <div style={{
+              position: 'absolute', top: '50%', left: `${(leftPct + rightPct) / 2}%`,
+              transform: 'translateX(-50%)', paddingTop: 10,
+              fontSize: 10.5, color: rightColor, fontWeight: 700, whiteSpace: 'nowrap',
+            }}>{rightPct}%</div>
+          </>
+        ) : (
+          <>
+            {/* Left label: sits to the left of the left tick */}
+            <div style={{
+              position: 'absolute', top: '50%',
+              right: `${100 - leftPct}%`, paddingRight: 5,
+              transform: 'translateY(-50%)',
+              fontSize: 10.5, color: leftColor, fontWeight: 700, whiteSpace: 'nowrap',
+            }}>{leftPct}%</div>
+            {/* Right label: sits to the right of the right tick */}
+            <div style={{
+              position: 'absolute', top: '50%',
+              left: `${rightPct}%`, paddingLeft: 5,
+              transform: 'translateY(-50%)',
+              fontSize: 10.5, color: rightColor, fontWeight: 700, whiteSpace: 'nowrap',
+            }}>{rightPct}%</div>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string | null }) {
-  const deptLabel = dept ?? PS_TOTAL;
-  const hasDept   = !!dept && deptLabel !== PS_TOTAL;
-  const years     = [...new Set(trend.map(r => r.year))].sort();
-  const latestYear = years.length ? Math.max(...years) : null;
-  const earliestYear = years.length ? Math.min(...years) : null;
+type CompareMode = 'dept' | 'year';
 
+function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string | null }) {
+  const deptLabel  = dept ?? PS_TOTAL;
+  const hasDept    = !!dept && deptLabel !== PS_TOTAL;
+  const years      = [...new Set(trend.map(r => r.year))].sort();
+  const latestYear = years.length ? years[years.length - 1] : null;
+  const prevYear   = years.length > 1 ? years[years.length - 2] : null;
+
+  const [mode, setMode]               = useState<CompareMode>('dept');
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const effectiveYear = selectedYear ?? latestYear;
 
-  if (years.length === 0) return <div style={{ color: '#9ca3af', fontSize: 13, padding: '16px 0' }}>No data available.</div>;
+  if (!latestYear) return <div style={{ color: '#9ca3af', fontSize: 13, padding: '16px 0' }}>No data available.</div>;
 
-  // Values come from the active year's data (for the PS Total side, which always exists)
-  const activeRows = trend.filter(r =>
-    hasDept ? r.year === effectiveYear : (r.year === latestYear || r.year === earliestYear)
-  );
-  const values  = sortedValues(activeRows);
-  const qType   = detectType(values);
+  // Effective mode: if no dept, always year comparison
+  const effectiveMode: CompareMode = hasDept ? mode : 'year';
+
+  // Which rows to pull values from (for sorting/detecting type)
+  const referenceYear = effectiveMode === 'dept' ? effectiveYear : latestYear;
+  const values   = sortedValues(trend.filter(r => r.year === referenceYear));
+  const qType    = detectType(values);
   const positiveSet = new Set(['To a great extent', 'To a moderate extent', 'Yes']);
 
-  const labelA = hasDept ? 'PS Total' : String(earliestYear);
-  const labelB = hasDept
-    ? (deptLabel.length > 28 ? deptLabel.slice(0, 28) + '…' : deptLabel)
-    : String(latestYear);
+  // Legend labels and colors
+  let colorA = COLOR_A, colorB = COLOR_B;
+  let labelA: string, labelB: string;
+
+  if (effectiveMode === 'dept') {
+    labelA = 'PS Total';
+    labelB = deptLabel.length > 30 ? deptLabel.slice(0, 30) + '…' : deptLabel;
+  } else {
+    const yearA = prevYear ?? years[0];
+    const yearB = latestYear;
+    labelA = String(yearA);
+    labelB = String(yearB);
+  }
 
   const chartRows = values.map(v => {
     let pctA = 0, pctB = 0;
-    if (hasDept) {
+    if (effectiveMode === 'dept') {
       const ps = trend.find(r => r.year === effectiveYear && r.dept_e === PS_TOTAL && r.question_value_e === v);
-      const d  = trend.find(r => r.year === effectiveYear && r.dept_e === deptLabel && r.question_value_e === v);
+      const d  = trend.find(r => r.year === effectiveYear && r.dept_e === deptLabel  && r.question_value_e === v);
       pctA = Math.round((ps?.shr_w_resp ?? 0) * 100);
-      pctB = Math.round((d?.shr_w_resp ?? 0) * 100);
+      pctB = Math.round((d?.shr_w_resp  ?? 0) * 100);
     } else {
-      const first = trend.find(r => r.year === earliestYear && r.dept_e === PS_TOTAL && r.question_value_e === v);
-      const last  = trend.find(r => r.year === latestYear   && r.dept_e === PS_TOTAL && r.question_value_e === v);
-      pctA = Math.round((first?.shr_w_resp ?? 0) * 100);
-      pctB = Math.round((last?.shr_w_resp ?? 0)  * 100);
+      const entity = hasDept ? deptLabel : PS_TOTAL;
+      const yearA  = prevYear ?? years[0];
+      const rA = trend.find(r => r.year === yearA      && r.dept_e === entity && r.question_value_e === v);
+      const rB = trend.find(r => r.year === latestYear && r.dept_e === entity && r.question_value_e === v);
+      pctA = Math.round((rA?.shr_w_resp ?? 0) * 100);
+      pctB = Math.round((rB?.shr_w_resp ?? 0) * 100);
     }
     return { label: v, pctA, pctB, isPositive: positiveSet.has(v) || qType === 'categorical' };
   });
 
   return (
     <div>
-      {/* Legend + year toggle */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14, flexWrap: 'wrap' }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#6b7280' }}>
-          <span style={{ width: 9, height: 9, borderRadius: '50%', background: COLOR_A, display: 'inline-block', flexShrink: 0 }} />
+      {/* Mode toggle — only when dept is selected and there are ≥2 years */}
+      {hasDept && prevYear && (
+        <div style={{
+          display: 'inline-flex', border: '1px solid #e5e7eb', borderRadius: 6,
+          overflow: 'hidden', marginBottom: 14,
+        }}>
+          {([['dept', 'Dept vs PS Total'], ['year', `${prevYear} → ${latestYear}`]] as [CompareMode, string][]).map(([m, label]) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              style={{
+                padding: '4px 12px', fontSize: 11, cursor: 'pointer', border: 'none',
+                background: effectiveMode === m ? '#1d3557' : '#fff',
+                color:      effectiveMode === m ? '#fff' : '#6b7280',
+                fontWeight: effectiveMode === m ? 600 : 400,
+              }}
+            >{label}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Legend + year picker (year picker only in dept mode) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 10, flexWrap: 'wrap' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280' }}>
+          <span style={{ width: 2, height: 14, background: colorA, display: 'inline-block', borderRadius: 1, flexShrink: 0 }} />
           {labelA}
         </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#1d3557', fontWeight: 600 }}>
-          <span style={{ width: 9, height: 9, borderRadius: '50%', background: COLOR_B, display: 'inline-block', flexShrink: 0 }} />
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: colorB, fontWeight: 600 }}>
+          <span style={{ width: 2, height: 14, background: colorB, display: 'inline-block', borderRadius: 1, flexShrink: 0 }} />
           {labelB}
         </span>
-        {hasDept && (
+        {effectiveMode === 'dept' && (
           <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
             {years.map(y => (
               <button
@@ -302,19 +352,38 @@ function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string
       </div>
 
       {/* X-axis tick labels */}
-      <div style={{ display: 'flex', marginBottom: 4 }}>
+      <div style={{ display: 'flex', marginBottom: 6 }}>
         <div style={{ width: 148, flexShrink: 0 }} />
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', paddingRight: 0 }}>
+        <div style={{ flex: 1, position: 'relative' }}>
           {[0, 25, 50, 75, 100].map(t => (
-            <span key={t} style={{ fontSize: 10, color: '#d1d5db', width: 28, textAlign: 'center' }}>{t}%</span>
+            <span key={t} style={{
+              position: 'absolute', left: `${t}%`, transform: 'translateX(-50%)',
+              fontSize: 10, color: '#d1d5db',
+            }}>{t}%</span>
           ))}
         </div>
       </div>
 
-      {/* Rows */}
-      {chartRows.map(r => (
-        <DumbbellRow key={r.label} label={r.label} pctA={r.pctA} pctB={r.pctB} isPositive={r.isPositive} />
-      ))}
+      {/* Grid lines behind rows */}
+      <div style={{ position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 148, right: 0, pointerEvents: 'none' }}>
+          {[25, 50, 75].map(t => (
+            <div key={t} style={{
+              position: 'absolute', top: 0, bottom: 0, left: `${t}%`,
+              borderLeft: '1px solid #f5f5f5',
+            }} />
+          ))}
+        </div>
+
+        {/* Rows */}
+        {chartRows.map(r => (
+          <DumbbellRow
+            key={r.label}
+            label={r.label} pctA={r.pctA} pctB={r.pctB}
+            colorA={colorA} colorB={colorB} isPositive={r.isPositive}
+          />
+        ))}
+      </div>
     </div>
   );
 }
