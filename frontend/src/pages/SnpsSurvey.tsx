@@ -155,10 +155,10 @@ const COLOR_A = '#b0b7c3'; // PS Total or earlier year
 const COLOR_B = '#e07b39'; // selected dept or latest year  (warm orange, like NYT)
 
 function DumbbellRow({
-  label, pctA, pctB, colorA, colorB, isPositive,
+  label, pctA, pctB, colorA, colorB, isPositive, labelWidth,
 }: {
   label: string; pctA: number; pctB: number;
-  colorA: string; colorB: string; isPositive: boolean;
+  colorA: string; colorB: string; isPositive: boolean; labelWidth: number;
 }) {
   const minPct   = Math.min(pctA, pctB);
   const maxPct   = Math.max(pctA, pctB);
@@ -176,8 +176,8 @@ function DumbbellRow({
     <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
       {/* Category label */}
       <div style={{
-        width: 148, flexShrink: 0, textAlign: 'right', paddingRight: 14,
-        fontSize: 12, color: isPositive ? '#374151' : '#9ca3af',
+        width: labelWidth, flexShrink: 0, textAlign: 'right', paddingRight: 10,
+        fontSize: 11, color: isPositive ? '#374151' : '#9ca3af',
         fontWeight: isPositive ? 600 : 400, lineHeight: 1.3,
       }}>
         {label}
@@ -257,40 +257,34 @@ function DumbbellRow({
 type CompareMode = 'dept' | 'year';
 
 function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string | null }) {
+  const isMobile   = useIsMobile();
+  const labelWidth = isMobile ? 100 : 140;
+  const axisTicks  = isMobile ? [0, 50, 100] : [0, 25, 50, 75, 100];
+  const gridLines  = isMobile ? [50] : [25, 50, 75];
+
   const deptLabel  = dept ?? PS_TOTAL;
   const hasDept    = !!dept && deptLabel !== PS_TOTAL;
   const years      = [...new Set(trend.map(r => r.year))].sort();
   const latestYear = years.length ? years[years.length - 1] : null;
   const prevYear   = years.length > 1 ? years[years.length - 2] : null;
 
-  const [mode, setMode]               = useState<CompareMode>('dept');
+  const [mode, setMode]                 = useState<CompareMode>('dept');
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const effectiveYear = selectedYear ?? latestYear;
 
   if (!latestYear) return <div style={{ color: '#9ca3af', fontSize: 13, padding: '16px 0' }}>No data available.</div>;
 
-  // Effective mode: if no dept, always year comparison
   const effectiveMode: CompareMode = hasDept ? mode : 'year';
-
-  // Which rows to pull values from (for sorting/detecting type)
   const referenceYear = effectiveMode === 'dept' ? effectiveYear : latestYear;
-  const values   = sortedValues(trend.filter(r => r.year === referenceYear));
-  const qType    = detectType(values);
+  const values      = sortedValues(trend.filter(r => r.year === referenceYear));
+  const qType       = detectType(values);
   const positiveSet = new Set(['To a great extent', 'To a moderate extent', 'Yes']);
 
-  // Legend labels and colors
-  let colorA = COLOR_A, colorB = COLOR_B;
-  let labelA: string, labelB: string;
-
-  if (effectiveMode === 'dept') {
-    labelA = 'PS Total';
-    labelB = deptLabel.length > 30 ? deptLabel.slice(0, 30) + '…' : deptLabel;
-  } else {
-    const yearA = prevYear ?? years[0];
-    const yearB = latestYear;
-    labelA = String(yearA);
-    labelB = String(yearB);
-  }
+  const colorA = COLOR_A, colorB = COLOR_B;
+  const labelA = effectiveMode === 'dept' ? 'PS Total' : String(prevYear ?? years[0]);
+  const labelB = effectiveMode === 'dept'
+    ? (deptLabel.length > (isMobile ? 22 : 30) ? deptLabel.slice(0, isMobile ? 22 : 30) + '…' : deptLabel)
+    : String(latestYear);
 
   const chartRows = values.map(v => {
     let pctA = 0, pctB = 0;
@@ -316,9 +310,9 @@ function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string
       {hasDept && prevYear && (
         <div style={{
           display: 'inline-flex', border: '1px solid #e5e7eb', borderRadius: 6,
-          overflow: 'hidden', marginBottom: 14,
+          overflow: 'hidden', marginBottom: 12,
         }}>
-          {([['dept', 'Dept vs PS Total'], ['year', `${prevYear} → ${latestYear}`]] as [CompareMode, string][]).map(([m, label]) => (
+          {([['dept', 'Dept vs PS Total'], ['year', `${prevYear} → ${latestYear}`]] as [CompareMode, string][]).map(([m, lbl]) => (
             <button
               key={m}
               onClick={() => setMode(m)}
@@ -328,19 +322,19 @@ function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string
                 color:      effectiveMode === m ? '#fff' : '#6b7280',
                 fontWeight: effectiveMode === m ? 600 : 400,
               }}
-            >{label}</button>
+            >{lbl}</button>
           ))}
         </div>
       )}
 
-      {/* Legend + year picker (year picker only in dept mode) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 10, flexWrap: 'wrap' }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280' }}>
-          <span style={{ width: 2, height: 14, background: colorA, display: 'inline-block', borderRadius: 1, flexShrink: 0 }} />
+      {/* Legend + year picker */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6b7280' }}>
+          <span style={{ width: 2, height: 13, background: colorA, display: 'inline-block', borderRadius: 1, flexShrink: 0 }} />
           {labelA}
         </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: colorB, fontWeight: 600 }}>
-          <span style={{ width: 2, height: 14, background: colorB, display: 'inline-block', borderRadius: 1, flexShrink: 0 }} />
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: colorB, fontWeight: 600 }}>
+          <span style={{ width: 2, height: 13, background: colorB, display: 'inline-block', borderRadius: 1, flexShrink: 0 }} />
           {labelB}
         </span>
         {effectiveMode === 'dept' && (
@@ -350,7 +344,7 @@ function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string
                 key={y}
                 onClick={() => setSelectedYear(y === effectiveYear ? null : y)}
                 style={{
-                  padding: '2px 9px', fontSize: 11, borderRadius: 4, cursor: 'pointer', border: '1px solid',
+                  padding: '2px 8px', fontSize: 11, borderRadius: 4, cursor: 'pointer', border: '1px solid',
                   borderColor: effectiveYear === y ? '#1d3557' : '#e5e7eb',
                   background:  effectiveYear === y ? '#1d3557' : '#fff',
                   color:       effectiveYear === y ? '#fff' : '#6b7280',
@@ -362,10 +356,10 @@ function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string
       </div>
 
       {/* X-axis tick labels */}
-      <div style={{ display: 'flex', marginBottom: 6 }}>
-        <div style={{ width: 148, flexShrink: 0 }} />
-        <div style={{ flex: 1, position: 'relative' }}>
-          {[0, 25, 50, 75, 100].map(t => (
+      <div style={{ display: 'flex', marginBottom: 4 }}>
+        <div style={{ width: labelWidth, flexShrink: 0 }} />
+        <div style={{ flex: 1, position: 'relative', height: 14 }}>
+          {axisTicks.map(t => (
             <span key={t} style={{
               position: 'absolute', left: `${t}%`, transform: 'translateX(-50%)',
               fontSize: 10, color: '#d1d5db',
@@ -374,23 +368,22 @@ function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string
         </div>
       </div>
 
-      {/* Grid lines behind rows */}
+      {/* Grid lines + rows */}
       <div style={{ position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 148, right: 0, pointerEvents: 'none' }}>
-          {[25, 50, 75].map(t => (
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: labelWidth, right: 0, pointerEvents: 'none' }}>
+          {gridLines.map(t => (
             <div key={t} style={{
               position: 'absolute', top: 0, bottom: 0, left: `${t}%`,
               borderLeft: '1px solid #f5f5f5',
             }} />
           ))}
         </div>
-
-        {/* Rows */}
         {chartRows.map(r => (
           <DumbbellRow
             key={r.label}
             label={r.label} pctA={r.pctA} pctB={r.pctB}
             colorA={colorA} colorB={colorB} isPositive={r.isPositive}
+            labelWidth={labelWidth}
           />
         ))}
       </div>
@@ -834,37 +827,34 @@ export default function SnpsSurvey() {
 
               {/* Positive score summary */}
               {isScored && psScoreByYear.length > 0 && (
-                <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {/* PS Total row */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11, color: '#6b7280', width: 80, flexShrink: 0 }}>PS Total</span>
-                    {psScoreByYear.map((s, i) => (
-                      <span key={s.year} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ fontSize: 11, color: '#9ca3af' }}>{s.year}</span>
-                        <span style={{ fontSize: 16, fontWeight: 700, color: '#1d3557' }}>{s.score}%</span>
-                        {i < psScoreByYear.length - 1 && (
-                          <span style={{ fontSize: 12, color: psScoreByYear[i + 1].score > s.score ? '#15803d' : psScoreByYear[i + 1].score < s.score ? '#dc2626' : '#9ca3af' }}>
-                            {psScoreByYear[i + 1].score > s.score ? '→' : psScoreByYear[i + 1].score < s.score ? '→' : '→'}
+                <div style={{ marginBottom: 16 }}>
+                  {[
+                    { scores: psScoreByYear, label: 'PS Total', color: '#1d3557' },
+                    ...(deptScoreByYear ? [{ scores: deptScoreByYear, label: selectedDept ?? '', color: COLOR_B }] : []),
+                  ].map(({ scores: rowScores, label, color }) => (
+                    <div key={label} style={{ display: 'flex', alignItems: 'baseline', gap: 0, marginBottom: 4, flexWrap: 'nowrap', overflow: 'hidden' }}>
+                      <span style={{
+                        fontSize: 11, color: '#6b7280', flexShrink: 0,
+                        width: isMobile ? 72 : 80,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }} title={label}>
+                        {label.length > (isMobile ? 10 : 12) ? label.slice(0, isMobile ? 10 : 12) + '…' : label}
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'baseline', gap: isMobile ? 6 : 8, flexWrap: 'nowrap' }}>
+                        {rowScores.map((s, i) => (
+                          <span key={s.year} style={{ display: 'flex', alignItems: 'baseline', gap: 3, flexShrink: 0 }}>
+                            <span style={{ fontSize: 10, color: '#9ca3af' }}>{s.year}</span>
+                            <span style={{ fontSize: isMobile ? 14 : 16, fontWeight: 700, color }}>{s.score}%</span>
+                            {i < rowScores.length - 1 && (
+                              <span style={{ fontSize: 10, color: rowScores[i + 1].score !== s.score ? (rowScores[i + 1].score > s.score ? '#15803d' : '#dc2626') : '#9ca3af' }}>
+                                {rowScores[i + 1].score > s.score ? '↑' : rowScores[i + 1].score < s.score ? '↓' : '—'}
+                              </span>
+                            )}
                           </span>
-                        )}
+                        ))}
                       </span>
-                    ))}
-                  </div>
-                  {/* Dept row if selected */}
-                  {deptScoreByYear && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 11, color: '#6b7280', width: 80, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={selectedDept ?? ''}>
-                        {(selectedDept ?? '').length > 12 ? (selectedDept ?? '').slice(0, 12) + '…' : selectedDept}
-                      </span>
-                      {deptScoreByYear.map((s, i) => (
-                        <span key={s.year} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ fontSize: 11, color: '#9ca3af' }}>{s.year}</span>
-                          <span style={{ fontSize: 16, fontWeight: 700, color: '#e63946' }}>{s.score}%</span>
-                          {i < deptScoreByYear.length - 1 && <span style={{ fontSize: 12, color: '#9ca3af' }}>→</span>}
-                        </span>
-                      ))}
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
 
