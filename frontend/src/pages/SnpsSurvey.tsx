@@ -677,6 +677,21 @@ export default function SnpsSurvey() {
 
   const questionMeta = questions.find(q => q.question === selectedQuestion);
 
+  // Flat ordered list in theme-grouped order (mirrors QuestionList rendering)
+  const orderedQuestions = useMemo(() => {
+    const map = new Map<string, SnpsQuestion[]>();
+    for (const q of questions) {
+      const theme = q.theme_e || 'Other';
+      if (!map.has(theme)) map.set(theme, []);
+      map.get(theme)!.push(q);
+    }
+    return [...map.values()].flat();
+  }, [questions]);
+
+  const currentIdx    = selectedQuestion ? orderedQuestions.findIndex(q => q.question === selectedQuestion) : -1;
+  const prevQ = currentIdx > 0 ? orderedQuestions[currentIdx - 1] : null;
+  const nextQ = currentIdx >= 0 && currentIdx < orderedQuestions.length - 1 ? orderedQuestions[currentIdx + 1] : null;
+
   // Positive scores per year for summary line
   const trendYears = [...new Set(trend.map(r => r.year))].sort();
   const allVals    = [...new Set(trend.map(r => r.question_value_e))];
@@ -789,6 +804,33 @@ export default function SnpsSurvey() {
                 <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Department</div>
                 <DeptSelector value={selectedDept} onChange={setSelectedDept} />
               </div>
+
+              {/* Prev / Next navigation */}
+              {currentIdx >= 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
+                  <button
+                    onClick={() => prevQ && setSelectedQuestion(prevQ.question)}
+                    disabled={!prevQ}
+                    style={{
+                      padding: '4px 10px', fontSize: 12, borderRadius: 5, cursor: prevQ ? 'pointer' : 'default',
+                      border: '1px solid #e5e7eb', background: '#fff',
+                      color: prevQ ? '#374151' : '#d1d5db',
+                    }}
+                  >← Prev</button>
+                  <span style={{ flex: 1, textAlign: 'center', fontSize: 11, color: '#9ca3af' }}>
+                    {currentIdx + 1} of {orderedQuestions.length}
+                  </span>
+                  <button
+                    onClick={() => nextQ && setSelectedQuestion(nextQ.question)}
+                    disabled={!nextQ}
+                    style={{
+                      padding: '4px 10px', fontSize: 12, borderRadius: 5, cursor: nextQ ? 'pointer' : 'default',
+                      border: '1px solid #e5e7eb', background: '#fff',
+                      color: nextQ ? '#374151' : '#d1d5db',
+                    }}
+                  >Next →</button>
+                </div>
+              )}
 
               {/* Question header */}
               {questionMeta && (

@@ -172,7 +172,7 @@ Most `dash_*` staffing tables have a `quarter` column (`dash_demo_fol` is the ex
 |---|---|---|
 | `/` | Staffing Dashboard | Home page — KPI summary cards + 6-tab dashboard |
 | `/snapshot` | Department Snapshot | Executive summary for a specific dept or PS Total — headline, KPI cards, chart, composition, comparison table, PSC oversight indicators |
-| `/snps` | SNPS Survey | Browse 2021/2023/2025 Staffing and Non-Partisanship Survey results — question browser by theme, multi-year bar chart, dept comparison |
+| `/snps` | SNPS Survey | Browse 2021/2023/2025 Staffing and Non-Partisanship Survey results — question browser by theme, dumbbell chart (dept vs PS Total or year-over-year), dept ranking column chart |
 | `/query` | Data Explorer | Standard column picker + Advanced SQL mode for raw advertisements and all tables |
 | `/process` | Process Lookup | Search by selection process # or reference #; shows process detail card |
 | `/admin` | Data Ingestion | Trigger ingestion, view log history — not linked in nav, access directly by URL |
@@ -240,6 +240,42 @@ Sub-selector with 5 views:
 - **VHA — Registrations** — VHA priority registrations vs appointments by priority type. Source: `dash_vha_2`.
 - **VHA — Eligibility** — Eligible CAF members by eligibility reason over time. Source: `dash_vha_3`.
 
+## SNPS Survey Page (`/snps`)
+
+### Layout
+- **Desktop**: two-column — left panel (question list) + right panel (detail/charts). Both always visible.
+- **Mobile**: single-column toggle — question list OR detail view. Detail view shows "← Back to questions" button to return to list. `useIsMobile(breakpoint=768)` hook using `useSyncExternalStore` drives the switch.
+- **URL state**: `?q=<question_code>` and `?dept=<dept_e>` persist selected question and department; shareable links. Synced via `useSearchParams` from react-router-dom.
+
+### Question Browser (left panel)
+- Questions grouped by theme, collapsible. Filtered to whichever year is selected.
+- Year selector at top (2021 / 2023 / 2025). Changing year re-fetches questions for that year.
+- Clicking a question populates the right panel; selected question highlighted.
+
+### Dumbbell Chart (`DumbbellChart` / `DumbbellRow`)
+Replaced the previous stacked bar chart. Renders one row per question value (Likert scale or categorical answer), showing two dots connected by a line.
+
+**Compare modes** (`CompareMode` toggle):
+- `'dept'` — selected dept (orange `COLOR_B = '#e07b39'`) vs PS Total (grey `COLOR_A = '#b0b7c3'`). Uses `useSnpsTrend` filtered to the selected year.
+- `'year'` — previous survey year (grey) vs current year (orange). Uses `useSnpsTrend` to compare the two most recent years where data exists.
+
+**Label layout — buffer-zone approach**:
+- Inner track inset `TRACK_BUFFER = 28px` on each side so labels can overflow outward without clipping.
+- Labels are always inline (not above/below) and always face away from the connecting line: `aIsLeft = pctA <= pctB` determines direction — when A is the left dot, its label is to the left; when A is the right dot (inverted), its label is to the right.
+- Labels wrap naturally; no ellipsis or truncation (users need to read full Likert text).
+- `axisTicks`: desktop `[0, 25, 50, 75, 100]`, mobile `[0, 50, 100]`.
+- `labelWidth`: desktop `140px`, mobile `96px`.
+
+**Score summary** (above chart): no-wrap row per series showing positive % for each available survey year with directional ↑/↓ colored indicators.
+
+### Dept Ranking Chart (`DeptRankingChart`)
+Column chart showing all departments ranked by positive response rate for the selected question/year.
+
+- **Categorical question detection**: if answer values don't match standard Likert/Yes/No patterns, the question is treated as categorical and value-picker buttons appear. Selecting a value ranks departments by share giving that specific answer (uses `value_e` param on `GET /snps/dept-scores`).
+- Values for the picker are derived from trend data filtered to the effective year — prevents cross-year label variants from appearing as duplicates.
+- Selected department highlighted in chart; PS Total shown as reference line.
+- Chart is compact (column, not a long scrollable list) so most departments fit in view.
+
 ### Partial Year (FYTD) Visual Treatment
 - `detectPartialYear()` runs on the fetched data: finds max fiscal year, checks quarter coverage (< 4 quarters = partial)
 - Partial year x-axis label gets " FYTD" suffix
@@ -271,7 +307,7 @@ Sub-selector with 5 views:
 - `GET /snps/questions?year=` — questions with response data for a year; defaults to latest year; uses browse-year snps_questions for metadata (correct themes), falls back to latest year for questions only in later surveys
 - `GET /snps/responses?question=&year=&dept=` — response distribution; always returns both dept AND PS Total rows for chart comparison (not a bug — callers must not sum across all rows)
 - `GET /snps/trend?question=&dept=` — response distribution across all available years
-- `GET /snps/dept-scores?question=&year=` — positive % per department, sorted descending
+- `GET /snps/dept-scores?question=&year=&value_e=` — positive % per department, sorted descending; when `value_e` is provided, ranks by share who gave that specific answer (used for categorical questions)
 - `POST /ingest` — trigger ingestion (background task)
 - `GET /ingest/status` — last 50 ingest log entries
 
