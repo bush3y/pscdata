@@ -413,14 +413,10 @@ function DeptRankingChart({
 
   const { data: scores = [], isLoading } = useSnpsDeptScores(question, effectiveYear, effectiveValue);
 
-  if (isLoading) return <div style={{ fontSize: 13, color: '#9ca3af', padding: '12px 0' }}>Loading…</div>;
-  if (scores.length === 0) return null;
-
-  // For non-categorical questions, skip if no positive scores exist
-  if (!isCategorical && !scores.some(s => s.positive_pct > 0)) return null;
+  const hasData = !isLoading && scores.length > 0 && (isCategorical || scores.some(s => s.positive_pct > 0));
 
   const highlightDept = selectedDept ?? PS_TOTAL;
-  const highlightIdx  = scores.findIndex(s => s.dept_e === highlightDept);
+  const highlightIdx  = hasData ? scores.findIndex(s => s.dept_e === highlightDept) : -1;
   const highlightRank = highlightIdx >= 0 ? highlightIdx + 1 : null;
 
   // Custom X-axis tick — only renders a triangle marker for the highlighted bar
@@ -511,45 +507,52 @@ function DeptRankingChart({
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={190}>
-        <BarChart
-          data={scores}
-          margin={{ top: 20, right: 8, left: 0, bottom: 12 }}
-          barCategoryGap="15%"
-        >
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-          <XAxis
-            dataKey="dept_e"
-            tick={<HighlightTick />}
-            axisLine={false}
-            tickLine={false}
-            interval={0}
-            height={16}
-          />
-          <YAxis
-            type="number"
-            domain={[0, 100]}
-            tickFormatter={(v: number) => `${v}%`}
-            tick={{ fontSize: 10 }}
-            width={32}
-          />
-          <Tooltip content={<RankingTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
-          <Bar dataKey="positive_pct" label={<HighlightLabel />} isAnimationActive={false}>
-            {scores.map(s => (
-              <Cell
-                key={s.dept_e}
-                fill={s.dept_e === highlightDept ? '#1d3557' : '#d1d5db'}
-                opacity={s.dept_e === highlightDept ? 1 : 0.7}
+      {isLoading ? (
+        <div style={{ fontSize: 13, color: '#9ca3af', padding: '12px 0' }}>Loading…</div>
+      ) : !hasData ? (
+        <div style={{ fontSize: 13, color: '#9ca3af', padding: '12px 0' }}>No data for {effectiveYear}.</div>
+      ) : (
+        <>
+          <ResponsiveContainer width="100%" height={190}>
+            <BarChart
+              data={scores}
+              margin={{ top: 20, right: 8, left: 0, bottom: 12 }}
+              barCategoryGap="15%"
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+              <XAxis
+                dataKey="dept_e"
+                tick={<HighlightTick />}
+                axisLine={false}
+                tickLine={false}
+                interval={0}
+                height={16}
               />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-
-      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-        Each bar = one department · hover to see name ·{' '}
-        {isCategorical ? `% who answered "${effectiveValue}"` : '% positive response'} · {effectiveYear}
-      </div>
+              <YAxis
+                type="number"
+                domain={[0, 100]}
+                tickFormatter={(v: number) => `${v}%`}
+                tick={{ fontSize: 10 }}
+                width={32}
+              />
+              <Tooltip content={<RankingTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
+              <Bar dataKey="positive_pct" label={<HighlightLabel />} isAnimationActive={false}>
+                {scores.map(s => (
+                  <Cell
+                    key={s.dept_e}
+                    fill={s.dept_e === highlightDept ? '#1d3557' : '#d1d5db'}
+                    opacity={s.dept_e === highlightDept ? 1 : 0.7}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+            Each bar = one department · hover to see name ·{' '}
+            {isCategorical ? `% who answered "${effectiveValue}"` : '% positive response'} · {effectiveYear}
+          </div>
+        </>
+      )}
     </div>
   );
 }
