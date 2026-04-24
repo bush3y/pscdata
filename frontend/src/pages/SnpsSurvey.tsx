@@ -154,6 +154,8 @@ function DeptSelector({ value, onChange }: { value: string | null; onChange: (v:
 const COLOR_A = '#b0b7c3'; // PS Total or earlier year
 const COLOR_B = '#e07b39'; // selected dept or latest year  (warm orange, like NYT)
 
+const TRACK_BUFFER = 28; // px reserved on each side for label overflow
+
 function DumbbellRow({
   label, pctA, pctB, colorA, colorB, isPositive, labelWidth,
 }: {
@@ -164,88 +166,62 @@ function DumbbellRow({
   const maxPct = Math.max(pctA, pctB);
   const gap    = maxPct - minPct;
 
-  // Labels face outward from their tick (A left, B right).
-  // But if a tick is too close to its natural label's overflow edge, we move
-  // that label above or below centre so it doesn't bleed into the label column.
-  const aAbove = pctA < 12;   // A tick near left — can't go further left; put label above
-  const bBelow = pctB > 88;   // B tick near right — would overflow right; put label below
-
   return (
     <div style={{ display: 'flex', alignItems: 'center', marginBottom: 5 }}>
-      {/* Category label — single line, ellipsis on overflow */}
+      {/* Category label — wraps naturally, no truncation */}
       <div style={{
         width: labelWidth, flexShrink: 0, textAlign: 'right', paddingRight: 10,
         fontSize: 10.5, color: isPositive ? '#374151' : '#9ca3af',
-        fontWeight: isPositive ? 600 : 400,
-        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        fontWeight: isPositive ? 600 : 400, lineHeight: 1.35,
       }}>
         {label}
       </div>
 
-      {/* Track — height 32 to give room for above/below labels */}
-      <div style={{ flex: 1, position: 'relative', height: 32, overflow: 'visible' }}>
-        {/* Dotted guide line */}
-        <div style={{
-          position: 'absolute', top: '50%', left: 0, right: 0,
-          borderTop: '1px dashed #e5e7eb', transform: 'translateY(-0.5px)',
-          pointerEvents: 'none',
-        }} />
-        {/* Solid connector */}
-        {gap > 0 && (
+      {/* Outer: takes flex space, visible overflow so labels can bleed into buffers */}
+      <div style={{ flex: 1, minWidth: 0, overflow: 'visible' }}>
+        {/* Inner track: inset TRACK_BUFFER px each side — labels overflow into those margins */}
+        <div style={{ margin: `0 ${TRACK_BUFFER}px`, position: 'relative', height: 28, overflow: 'visible' }}>
+          {/* Dotted guide line */}
           <div style={{
-            position: 'absolute', top: '50%',
-            left: `${minPct}%`, width: `${gap}%`,
-            height: 1.5, background: '#d1d5db', transform: 'translateY(-50%)',
+            position: 'absolute', top: '50%', left: 0, right: 0,
+            borderTop: '1px dashed #e5e7eb', transform: 'translateY(-0.5px)',
+            pointerEvents: 'none',
           }} />
-        )}
-        {/* Tick A */}
-        <div style={{
-          position: 'absolute', top: '50%', left: `${pctA}%`,
-          transform: 'translate(-50%, -50%)',
-          width: 2, height: 16, background: colorA, borderRadius: 1,
-        }} />
-        {/* Tick B */}
-        <div style={{
-          position: 'absolute', top: '50%', left: `${pctB}%`,
-          transform: 'translate(-50%, -50%)',
-          width: 2, height: 16, background: colorB, borderRadius: 1,
-        }} />
-
-        {/* Label A */}
-        {aAbove ? (
-          // Above centre, centred on tick — avoids left overflow
+          {/* Solid connector */}
+          {gap > 0 && (
+            <div style={{
+              position: 'absolute', top: '50%',
+              left: `${minPct}%`, width: `${gap}%`,
+              height: 1.5, background: '#d1d5db', transform: 'translateY(-50%)',
+            }} />
+          )}
+          {/* Tick A */}
           <div style={{
-            position: 'absolute', bottom: '50%', left: `${pctA}%`,
-            transform: 'translate(-50%, -3px)',
-            fontSize: 10.5, color: colorA, fontWeight: 600, whiteSpace: 'nowrap',
-          }}>{pctA}%</div>
-        ) : (
-          // Normal: to the left of tick A
+            position: 'absolute', top: '50%', left: `${pctA}%`,
+            transform: 'translate(-50%, -50%)',
+            width: 2, height: 16, background: colorA, borderRadius: 1,
+          }} />
+          {/* Tick B */}
+          <div style={{
+            position: 'absolute', top: '50%', left: `${pctB}%`,
+            transform: 'translate(-50%, -50%)',
+            width: 2, height: 16, background: colorB, borderRadius: 1,
+          }} />
+          {/* Label A — always to the LEFT of tick A, overflows into left buffer */}
           <div style={{
             position: 'absolute', top: '50%',
             right: `${100 - pctA}%`, paddingRight: 5,
             transform: 'translateY(-50%)',
             fontSize: 10.5, color: colorA, fontWeight: 600, whiteSpace: 'nowrap',
           }}>{pctA}%</div>
-        )}
-
-        {/* Label B */}
-        {bBelow ? (
-          // Below centre, centred on tick — avoids right overflow
-          <div style={{
-            position: 'absolute', top: '50%', left: `${pctB}%`,
-            transform: 'translate(-50%, 3px)',
-            fontSize: 10.5, color: colorB, fontWeight: 700, whiteSpace: 'nowrap',
-          }}>{pctB}%</div>
-        ) : (
-          // Normal: to the right of tick B
+          {/* Label B — always to the RIGHT of tick B, overflows into right buffer */}
           <div style={{
             position: 'absolute', top: '50%',
             left: `${pctB}%`, paddingLeft: 5,
             transform: 'translateY(-50%)',
             fontSize: 10.5, color: colorB, fontWeight: 700, whiteSpace: 'nowrap',
           }}>{pctB}%</div>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -352,22 +328,24 @@ function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string
         )}
       </div>
 
-      {/* X-axis tick labels */}
+      {/* X-axis tick labels — offset by TRACK_BUFFER to align with inner track */}
       <div style={{ display: 'flex', marginBottom: 4 }}>
         <div style={{ width: labelWidth, flexShrink: 0 }} />
-        <div style={{ flex: 1, position: 'relative', height: 14 }}>
-          {axisTicks.map(t => (
-            <span key={t} style={{
-              position: 'absolute', left: `${t}%`, transform: 'translateX(-50%)',
-              fontSize: 10, color: '#d1d5db',
-            }}>{t}%</span>
-          ))}
+        <div style={{ flex: 1, minWidth: 0, overflow: 'visible' }}>
+          <div style={{ margin: `0 ${TRACK_BUFFER}px`, position: 'relative', height: 14 }}>
+            {axisTicks.map(t => (
+              <span key={t} style={{
+                position: 'absolute', left: `${t}%`, transform: 'translateX(-50%)',
+                fontSize: 10, color: '#d1d5db',
+              }}>{t}%</span>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Grid lines + rows */}
       <div style={{ position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 0, bottom: 0, left: labelWidth, right: 0, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: labelWidth + TRACK_BUFFER, right: TRACK_BUFFER, pointerEvents: 'none' }}>
           {gridLines.map(t => (
             <div key={t} style={{
               position: 'absolute', top: 0, bottom: 0, left: `${t}%`,
