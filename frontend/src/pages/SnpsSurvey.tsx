@@ -160,95 +160,76 @@ function DumbbellRow({
   label: string; pctA: number; pctB: number;
   colorA: string; colorB: string; isPositive: boolean; labelWidth: number;
 }) {
-  const minPct   = Math.min(pctA, pctB);
-  const maxPct   = Math.max(pctA, pctB);
-  const aIsLeft  = pctA <= pctB;
-  const leftPct  = aIsLeft ? pctA : pctB;
-  const rightPct = aIsLeft ? pctB : pctA;
-  const leftColor  = aIsLeft ? colorA : colorB;
-  const rightColor = aIsLeft ? colorB : colorA;
-  const gap = maxPct - minPct;
+  const minPct = Math.min(pctA, pctB);
+  const maxPct = Math.max(pctA, pctB);
+  const gap    = maxPct - minPct;
 
-  // When ticks overlap (< 5pp), stack both labels vertically above the tick
-  const overlapping = gap < 5;
+  // Key insight: always put colorA label LEFT of tick A, colorB label RIGHT of tick B.
+  // They face outward from each other so they never collide, even when ticks are adjacent.
+  // Edge case: if tick A is near 100%, flip its label to the right; if B is near 0%, flip left.
+  const aLabelRight = pctA > 92;  // too close to right edge — put A label on right instead
+  const bLabelLeft  = pctB < 8;   // too close to left edge — put B label on left instead
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-      {/* Category label */}
+    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 5 }}>
+      {/* Category label — nowrap + ellipsis prevents row-height growth from wrapping */}
       <div style={{
         width: labelWidth, flexShrink: 0, textAlign: 'right', paddingRight: 10,
-        fontSize: 11, color: isPositive ? '#374151' : '#9ca3af',
-        fontWeight: isPositive ? 600 : 400, lineHeight: 1.3,
+        fontSize: 10.5, color: isPositive ? '#374151' : '#9ca3af',
+        fontWeight: isPositive ? 600 : 400,
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {label}
       </div>
 
-      {/* Track — overflow visible so inline labels can extend slightly outside */}
-      <div style={{ flex: 1, position: 'relative', height: 28, overflow: 'visible' }}>
-
-        {/* Full dotted guide line */}
+      {/* Track */}
+      <div style={{ flex: 1, position: 'relative', height: 26, overflow: 'visible' }}>
+        {/* Dotted guide line */}
         <div style={{
           position: 'absolute', top: '50%', left: 0, right: 0,
-          borderTop: '1px dashed #e5e7eb', transform: 'translateY(-50%)',
+          borderTop: '1px dashed #e5e7eb', transform: 'translateY(-0.5px)',
           pointerEvents: 'none',
         }} />
-
-        {/* Solid connector between the two ticks */}
-        {!overlapping && (
+        {/* Solid connector */}
+        {gap > 0 && (
           <div style={{
             position: 'absolute', top: '50%',
-            left: `${minPct}%`, width: `${maxPct - minPct}%`,
+            left: `${minPct}%`, width: `${gap}%`,
             height: 1.5, background: '#d1d5db', transform: 'translateY(-50%)',
           }} />
         )}
-
-        {/* Tick A */}
+        {/* Tick A (grey / earlier year / PS Total) */}
         <div style={{
           position: 'absolute', top: '50%', left: `${pctA}%`,
           transform: 'translate(-50%, -50%)',
           width: 2, height: 16, background: colorA, borderRadius: 1,
         }} />
-
-        {/* Tick B */}
+        {/* Tick B (orange / latest year / dept) */}
         <div style={{
           position: 'absolute', top: '50%', left: `${pctB}%`,
           transform: 'translate(-50%, -50%)',
           width: 2, height: 16, background: colorB, borderRadius: 1,
         }} />
 
-        {/* Labels — inline to the outside of the connector, like NYT */}
-        {overlapping ? (
-          // Stack them vertically when too close
-          <>
-            <div style={{
-              position: 'absolute', bottom: '50%', left: `${(leftPct + rightPct) / 2}%`,
-              transform: 'translateX(-50%)', paddingBottom: 10,
-              fontSize: 10.5, color: leftColor, fontWeight: 700, whiteSpace: 'nowrap',
-            }}>{leftPct}%</div>
-            <div style={{
-              position: 'absolute', top: '50%', left: `${(leftPct + rightPct) / 2}%`,
-              transform: 'translateX(-50%)', paddingTop: 10,
-              fontSize: 10.5, color: rightColor, fontWeight: 700, whiteSpace: 'nowrap',
-            }}>{rightPct}%</div>
-          </>
-        ) : (
-          <>
-            {/* Left label: sits to the left of the left tick */}
-            <div style={{
-              position: 'absolute', top: '50%',
-              right: `${100 - leftPct}%`, paddingRight: 5,
-              transform: 'translateY(-50%)',
-              fontSize: 10.5, color: leftColor, fontWeight: 700, whiteSpace: 'nowrap',
-            }}>{leftPct}%</div>
-            {/* Right label: sits to the right of the right tick */}
-            <div style={{
-              position: 'absolute', top: '50%',
-              left: `${rightPct}%`, paddingLeft: 5,
-              transform: 'translateY(-50%)',
-              fontSize: 10.5, color: rightColor, fontWeight: 700, whiteSpace: 'nowrap',
-            }}>{rightPct}%</div>
-          </>
-        )}
+        {/* Label A — always outward from tick A */}
+        <div style={{
+          position: 'absolute', top: '50%',
+          ...(aLabelRight
+            ? { left: `${pctA}%`, paddingLeft: 5 }
+            : { right: `${100 - pctA}%`, paddingRight: 5 }),
+          transform: 'translateY(-50%)',
+          fontSize: 10.5, color: colorA, fontWeight: 600, whiteSpace: 'nowrap',
+        }}>{pctA}%</div>
+
+        {/* Label B — always outward from tick B */}
+        <div style={{
+          position: 'absolute', top: '50%',
+          ...(bLabelLeft
+            ? { right: `${100 - pctB}%`, paddingRight: 5 }
+            : { left: `${pctB}%`, paddingLeft: 5 }),
+          transform: 'translateY(-50%)',
+          fontSize: 10.5, color: colorB, fontWeight: 700, whiteSpace: 'nowrap',
+        }}>{pctB}%</div>
       </div>
     </div>
   );
@@ -258,7 +239,7 @@ type CompareMode = 'dept' | 'year';
 
 function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string | null }) {
   const isMobile   = useIsMobile();
-  const labelWidth = isMobile ? 100 : 140;
+  const labelWidth = isMobile ? 82 : 140;
   const axisTicks  = isMobile ? [0, 50, 100] : [0, 25, 50, 75, 100];
   const gridLines  = isMobile ? [50] : [25, 50, 75];
 
