@@ -35,7 +35,7 @@ const LIKERT_ORDER = [
 ];
 
 
-const POSITIVE_KEYS = new Set(['To a great extent', 'To a moderate extent', 'Yes']);
+const POSITIVE_KEYS = new Set(['To a great extent', 'To a moderate extent', 'Yes', 'Selected']);
 
 const RESPONDENT_PREFIX: Record<string, string> = {
   GEN: 'All employees',
@@ -55,6 +55,7 @@ function respondentGroup(question: string): string {
 function detectType(vals: string[]): QuestionType {
   if (LIKERT_ORDER.filter(v => vals.includes(v)).length >= 3) return 'likert';
   if (vals.includes('Yes') || vals.includes('No')) return 'yesno';
+  if (vals.includes('Selected') || vals.includes('Not selected')) return 'yesno';
   return 'categorical';
 }
 
@@ -63,6 +64,7 @@ function sortedValues(rows: SnpsResponseRow[]): string[] {
   const likertSorted = LIKERT_ORDER.filter(v => vals.includes(v));
   if (likertSorted.length === vals.length) return likertSorted;
   if (vals.includes('Yes') && vals.includes('No')) return ['Yes', 'No', ...vals.filter(v => v !== 'Yes' && v !== 'No')];
+  if (vals.includes('Selected') && vals.includes('Not selected')) return ['Selected', 'Not selected', ...vals.filter(v => v !== 'Selected' && v !== 'Not selected')];
   return vals.sort();
 }
 
