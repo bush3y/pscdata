@@ -125,7 +125,7 @@ function DeptSelector({ value, onChange }: { value: string | null; onChange: (v:
       {input && (
         <button
           onClick={() => { setInput(''); onChange(null); setOpen(false); }}
-          style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 18, padding: 0 }}
+          style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 18, padding: 0 }}
         >×</button>
       )}
       {open && filtered.length > 0 && (
@@ -153,8 +153,8 @@ function DeptSelector({ value, onChange }: { value: string | null; onChange: (v:
 
 // ── Dumbbell chart ────────────────────────────────────────────────────────────
 
-const COLOR_A = '#b0b7c3'; // PS Total or earlier year
-const COLOR_B = '#e07b39'; // selected dept or latest year  (warm orange, like NYT)
+const COLOR_A = '#6b7280'; // PS Total or earlier year
+const COLOR_B = '#c2410c'; // selected dept or latest year  (orange, like NYT)
 
 const TRACK_BUFFER = 28; // px reserved on each side for label overflow
 
@@ -173,7 +173,7 @@ function DumbbellRow({
       {/* Category label — wraps naturally, no truncation */}
       <div style={{
         width: labelWidth, flexShrink: 0, textAlign: 'right', paddingRight: 10,
-        fontSize: 10.5, color: isPositive ? '#374151' : '#9ca3af',
+        fontSize: 10.5, color: isPositive ? '#374151' : '#6b7280',
         fontWeight: isPositive ? 600 : 400, lineHeight: 1.35,
       }}>
         {label}
@@ -260,7 +260,7 @@ function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const effectiveYear = selectedYear ?? latestYear;
 
-  if (!latestYear) return <div style={{ color: '#9ca3af', fontSize: 13, padding: '16px 0' }}>No data available.</div>;
+  if (!latestYear) return <div style={{ color: '#6b7280', fontSize: 13, padding: '16px 0' }}>No data available.</div>;
 
   const effectiveMode: CompareMode = hasDept ? mode : 'year';
   const referenceYear = effectiveMode === 'dept' ? effectiveYear : latestYear;
@@ -349,7 +349,7 @@ function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string
             {axisTicks.map(t => (
               <span key={t} style={{
                 position: 'absolute', left: `${t}%`, transform: 'translateX(-50%)',
-                fontSize: 10, color: '#d1d5db',
+                fontSize: 10, color: '#6b7280',
               }}>{t}%</span>
             ))}
           </div>
@@ -485,8 +485,8 @@ function DeptRankingChart({
               style={{
                 padding: '3px 10px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
                 border: '1px solid',
-                borderColor: effectiveValue === v ? '#2a9d8f' : '#e5e7eb',
-                background: effectiveValue === v ? '#2a9d8f' : '#fff',
+                borderColor: effectiveValue === v ? '#0f766e' : '#e5e7eb',
+                background: effectiveValue === v ? '#0f766e' : '#fff',
                 color: effectiveValue === v ? '#fff' : '#6b7280',
               }}
             >{v}</button>
@@ -508,9 +508,9 @@ function DeptRankingChart({
       </div>
 
       {isLoading ? (
-        <div style={{ fontSize: 13, color: '#9ca3af', padding: '12px 0' }}>Loading…</div>
+        <div style={{ fontSize: 13, color: '#6b7280', padding: '12px 0' }}>Loading…</div>
       ) : !hasData ? (
-        <div style={{ fontSize: 13, color: '#9ca3af', padding: '12px 0' }}>No data for {effectiveYear}.</div>
+        <div style={{ fontSize: 13, color: '#6b7280', padding: '12px 0' }}>No data for {effectiveYear}.</div>
       ) : (
         <>
           <ResponsiveContainer width="100%" height={190}>
@@ -547,7 +547,7 @@ function DeptRankingChart({
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
             Each bar = one department · hover to see name ·{' '}
             {isCategorical ? `% who answered "${effectiveValue}"` : '% positive response'} · {effectiveYear}
           </div>
@@ -613,7 +613,7 @@ function QuestionList({
             onMouseLeave={e => { if (!openThemes.has(theme)) e.currentTarget.style.background = 'none'; }}
           >
             <span>{theme}</span>
-            <span style={{ fontSize: 10, color: '#9ca3af' }}>{openThemes.has(theme) ? '▲' : '▼'} {qs.length}</span>
+            <span style={{ fontSize: 10, color: '#6b7280' }}>{openThemes.has(theme) ? '▲' : '▼'} {qs.length}</span>
           </button>
           {openThemes.has(theme) && qs.map(q => (
             <button
@@ -633,7 +633,7 @@ function QuestionList({
               onMouseLeave={e => { if (selected !== q.question) e.currentTarget.style.background = 'none'; }}
               title={q.question_e}
             >
-              <span style={{ fontSize: 10, color: '#9ca3af', display: 'block', marginBottom: 1 }}>
+              <span style={{ fontSize: 10, color: '#6b7280', display: 'block', marginBottom: 1 }}>
                 {q.question} · {respondentGroup(q.question)}
               </span>
               {q.question_e.length > 80 ? q.question_e.slice(0, 80) + '…' : q.question_e}
@@ -760,10 +760,10 @@ export default function SnpsSurvey() {
                   >{y}</button>
                 ))}
               </div>
-              <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 6 }}>{questions.length} questions</div>
+              <div style={{ fontSize: 10, color: '#6b7280', marginTop: 6 }}>{questions.length} questions</div>
             </div>
             {questions.length === 0 ? (
-              <div style={{ padding: 16, fontSize: 13, color: '#9ca3af' }}>No data — trigger ingestion first.</div>
+              <div style={{ padding: 16, fontSize: 13, color: '#6b7280' }}>No data — trigger ingestion first.</div>
             ) : (
               <QuestionList questions={questions} selected={selectedQuestion} onSelect={q => {
                 setSelectedQuestion(q);
@@ -780,7 +780,7 @@ export default function SnpsSurvey() {
           {!selectedQuestion ? (
             <div style={{
               border: '1px solid #e5e7eb', borderRadius: 8, padding: '48px 32px',
-              textAlign: 'center', color: '#9ca3af', fontSize: 13, background: '#fafafa',
+              textAlign: 'center', color: '#6b7280', fontSize: 13, background: '#fafafa',
             }}>
               Select a question from the list to see responses
             </div>
@@ -804,7 +804,7 @@ export default function SnpsSurvey() {
 
               {/* Dept selector */}
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Department</div>
+                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Department</div>
                 <DeptSelector value={selectedDept} onChange={setSelectedDept} />
               </div>
 
@@ -820,7 +820,7 @@ export default function SnpsSurvey() {
                       color: prevQ ? '#374151' : '#d1d5db',
                     }}
                   >← Prev</button>
-                  <span style={{ flex: 1, textAlign: 'center', fontSize: 11, color: '#9ca3af' }}>
+                  <span style={{ flex: 1, textAlign: 'center', fontSize: 11, color: '#6b7280' }}>
                     {currentIdx + 1} of {orderedQuestions.length}
                   </span>
                   <button
@@ -845,7 +845,7 @@ export default function SnpsSurvey() {
                     <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: '#f3f4f6', color: '#6b7280' }}>
                       {respondentGroup(selectedQuestion)}
                     </span>
-                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: '#f3f4f6', color: '#9ca3af' }}>
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: '#f3f4f6', color: '#6b7280' }}>
                       {selectedQuestion}
                     </span>
                   </div>
@@ -888,11 +888,11 @@ export default function SnpsSurvey() {
                             ? (s.score > prevS.score ? '↑' : s.score < prevS.score ? '↓' : '—')
                             : null;
                           const arrowColor = prevS && s
-                            ? (s.score > prevS.score ? '#15803d' : s.score < prevS.score ? '#dc2626' : '#9ca3af')
-                            : '#9ca3af';
+                            ? (s.score > prevS.score ? '#15803d' : s.score < prevS.score ? '#dc2626' : '#6b7280')
+                            : '#6b7280';
                           return (
                             <div key={`${label}-${y}`} style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
-                              <span style={{ fontSize: 10, color: '#9ca3af' }}>{y}</span>
+                              <span style={{ fontSize: 10, color: '#6b7280' }}>{y}</span>
                               <span style={{ fontSize: 10, color: arrowColor, visibility: arrow ? 'visible' : 'hidden' }}>{arrow ?? '↑'}</span>
                               <span style={{ fontSize: isMobile ? 14 : 16, fontWeight: 700, color }}>
                                 {s != null ? `${s.score}%` : '—'}
@@ -909,17 +909,17 @@ export default function SnpsSurvey() {
               {/* Dumbbell distribution chart */}
 
               {loadingTrend ? (
-                <div style={{ padding: '16px 0', color: '#9ca3af', fontSize: 13 }}>Loading…</div>
+                <div style={{ padding: '16px 0', color: '#6b7280', fontSize: 13 }}>Loading…</div>
               ) : (
                 <DumbbellChart trend={trend} dept={selectedDept} />
               )}
 
-              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6 }}>
+              <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>
                 Values shown as % of respondents.
                 {isScored ? ' "Positive" = To a great extent + To a moderate extent (or Yes).' : ''}
               </div>
               {questionMeta?.theme_e === 'Demographic characteristics' && trendYears.some(y => y < 2025) && (
-                <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4, fontStyle: 'italic' }}>
+                <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4, fontStyle: 'italic' }}>
                   Note: 2021/2023 demographic distributions are derived from cross-tabulation data and include all respondent types (employees, managers, and advisors). Department-level figures may differ from PSC's published values, which show employees only. 2025 data comes directly from the survey source and is accurate.
                 </div>
               )}
