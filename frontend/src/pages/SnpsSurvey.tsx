@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer, Cell,
+  ResponsiveContainer, Cell,
 } from 'recharts';
 import {
   PS_TOTAL,
@@ -24,16 +24,6 @@ const LIKERT_ORDER = [
   'Not at all',
 ];
 
-const LIKERT_COLORS: Record<string, string> = {
-  'To a great extent':    '#15803d',
-  'To a moderate extent': '#86efac',
-  'To a minimal extent':  '#fca5a5',
-  'Not at all':           '#dc2626',
-  'Yes':                  '#1d4ed8',
-  'No':                   '#cbd5e1',
-};
-
-const CATEGORICAL_COLORS = ['#1d3557','#2a9d8f','#e9c46a','#f4a261','#e76f51','#457b9d','#a8dadc','#6d6875'];
 
 const POSITIVE_KEYS = new Set(['To a great extent', 'To a moderate extent', 'Yes']);
 
@@ -66,10 +56,6 @@ function sortedValues(rows: SnpsResponseRow[]): string[] {
   return vals.sort();
 }
 
-function colorForValue(v: string, type: QuestionType, idx: number): string {
-  if (type === 'likert' || type === 'yesno') return LIKERT_COLORS[v] ?? '#94a3b8';
-  return CATEGORICAL_COLORS[idx % CATEGORICAL_COLORS.length];
-}
 
 function posScore(rows: SnpsResponseRow[]): number {
   return Math.round(rows.filter(r => POSITIVE_KEYS.has(r.question_value_e)).reduce((s, r) => s + r.shr_w_resp * 100, 0));
@@ -153,51 +139,183 @@ function DeptSelector({ value, onChange }: { value: string | null; onChange: (v:
   );
 }
 
-// ── Multi-year response distribution chart ───────────────────────────────────
+// ── Dumbbell chart ────────────────────────────────────────────────────────────
 
-function MultiYearChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string | null }) {
-  const deptLabel = dept ?? PS_TOTAL;
-  const years = [...new Set(trend.map(r => r.year))].sort();
-  if (years.length === 0) return <div style={{ color: '#9ca3af', fontSize: 13, padding: '16px 0' }}>No data available.</div>;
+const COLOR_A = '#9ca3af'; // PS Total or earlier year
+const COLOR_B = '#1d3557'; // selected dept or latest year
 
-  const values = sortedValues(trend);
-  const qType  = detectType(values);
+function DumbbellRow({
+  label, pctA, pctB, isPositive,
+}: {
+  label: string; pctA: number; pctB: number; isPositive: boolean;
+}) {
+  const gap = Math.abs(pctB - pctA);
+  const left  = Math.min(pctA, pctB);
+  const right = Math.max(pctA, pctB);
+  const aIsLeft = pctA <= pctB;
 
-  // One row per year; if dept selected, two rows per year (dept first, then PS)
-  const rows: Array<Record<string, string | number>> = [];
-  for (const y of [...years].reverse()) {
-    const depts = (dept && deptLabel !== PS_TOTAL) ? [deptLabel, PS_TOTAL] : [PS_TOTAL];
-    for (const d of depts) {
-      const dData = trend.filter(r => r.year === y && r.dept_e === d);
-      const label = (dept && deptLabel !== PS_TOTAL)
-        ? `${y} · ${d === PS_TOTAL ? 'PS Total' : (d.length > 22 ? d.slice(0, 22) + '…' : d)}`
-        : `${y}`;
-      const row: Record<string, string | number> = { name: label };
-      for (const v of values) {
-        row[v] = Math.round((dData.find(r => r.question_value_e === v)?.shr_w_resp ?? 0) * 1000) / 10;
-      }
-      rows.push(row);
-    }
-  }
-
-  const numRows  = rows.length;
-  const barSize  = 22;
-  const chartH   = numRows * (barSize + 10) + 40;
-  const yWidth   = dept && deptLabel !== PS_TOTAL ? 200 : 50;
+  // Avoid label overlap: if within 8pp, stagger above/below more aggressively
+  const tooClose = gap < 9;
 
   return (
-    <ResponsiveContainer width="100%" height={chartH}>
-      <BarChart layout="vertical" data={rows} margin={{ top: 4, right: 36, left: 0, bottom: 4 }} barSize={barSize}>
-        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
-        <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11 }} />
-        <YAxis type="category" dataKey="name" width={yWidth} tick={{ fontSize: 11 }} />
-        <Tooltip formatter={(v: number) => `${v}%`} />
-        <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
-        {values.map((v, i) => (
-          <Bar key={v} dataKey={v} stackId="a" fill={colorForValue(v, qType, i)} />
-        ))}
-      </BarChart>
-    </ResponsiveContainer>
+    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+      {/* Label */}
+      <div style={{
+        width: 148, flexShrink: 0, textAlign: 'right', paddingRight: 12,
+        fontSize: 12, color: isPositive ? '#374151' : '#6b7280',
+        fontWeight: isPositive ? 600 : 400, lineHeight: 1.3,
+      }}>
+        {label}
+      </div>
+
+      {/* Track */}
+      <div style={{ flex: 1, position: 'relative', height: 36 }}>
+        {/* Full guide line */}
+        <div style={{
+          position: 'absolute', top: '50%', left: 0, right: 0,
+          height: 1, background: '#f0f0f0', transform: 'translateY(-50%)',
+        }} />
+        {/* Segment between the two dots */}
+        <div style={{
+          position: 'absolute', top: '50%',
+          left: `${left}%`, width: `${right - left}%`,
+          height: 2, background: '#e5e7eb', transform: 'translateY(-50%)',
+        }} />
+
+        {/* Dot A */}
+        <div style={{
+          position: 'absolute', top: '50%', left: `${pctA}%`,
+          transform: 'translate(-50%, -50%)',
+          width: 9, height: 9, borderRadius: '50%',
+          background: COLOR_A, border: '2px solid #fff',
+          boxShadow: `0 0 0 1.5px ${COLOR_A}`,
+          zIndex: 2,
+        }} />
+        {/* Label A — above if A is left, below if A is right */}
+        <div style={{
+          position: 'absolute',
+          top: aIsLeft ? (tooClose ? 0 : 2) : (tooClose ? undefined : undefined),
+          bottom: aIsLeft ? undefined : (tooClose ? 0 : 2),
+          left: `${pctA}%`,
+          transform: 'translateX(-50%)',
+          fontSize: 10.5, color: COLOR_A, fontWeight: 600,
+          whiteSpace: 'nowrap', lineHeight: 1,
+        }}>
+          {pctA}%
+        </div>
+
+        {/* Dot B */}
+        <div style={{
+          position: 'absolute', top: '50%', left: `${pctB}%`,
+          transform: 'translate(-50%, -50%)',
+          width: 9, height: 9, borderRadius: '50%',
+          background: COLOR_B, border: '2px solid #fff',
+          boxShadow: `0 0 0 1.5px ${COLOR_B}`,
+          zIndex: 2,
+        }} />
+        {/* Label B — below if B is right, above if B is left */}
+        <div style={{
+          position: 'absolute',
+          bottom: aIsLeft ? (tooClose ? 0 : 2) : (tooClose ? undefined : undefined),
+          top: aIsLeft ? undefined : (tooClose ? 0 : 2),
+          left: `${pctB}%`,
+          transform: 'translateX(-50%)',
+          fontSize: 10.5, color: COLOR_B, fontWeight: 700,
+          whiteSpace: 'nowrap', lineHeight: 1,
+        }}>
+          {pctB}%
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string | null }) {
+  const deptLabel = dept ?? PS_TOTAL;
+  const hasDept   = !!dept && deptLabel !== PS_TOTAL;
+  const years     = [...new Set(trend.map(r => r.year))].sort();
+  const latestYear = years.length ? Math.max(...years) : null;
+  const earliestYear = years.length ? Math.min(...years) : null;
+
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const effectiveYear = selectedYear ?? latestYear;
+
+  if (years.length === 0) return <div style={{ color: '#9ca3af', fontSize: 13, padding: '16px 0' }}>No data available.</div>;
+
+  // Values come from the active year's data (for the PS Total side, which always exists)
+  const activeRows = trend.filter(r =>
+    hasDept ? r.year === effectiveYear : (r.year === latestYear || r.year === earliestYear)
+  );
+  const values  = sortedValues(activeRows);
+  const qType   = detectType(values);
+  const positiveSet = new Set(['To a great extent', 'To a moderate extent', 'Yes']);
+
+  const labelA = hasDept ? 'PS Total' : String(earliestYear);
+  const labelB = hasDept
+    ? (deptLabel.length > 28 ? deptLabel.slice(0, 28) + '…' : deptLabel)
+    : String(latestYear);
+
+  const chartRows = values.map(v => {
+    let pctA = 0, pctB = 0;
+    if (hasDept) {
+      const ps = trend.find(r => r.year === effectiveYear && r.dept_e === PS_TOTAL && r.question_value_e === v);
+      const d  = trend.find(r => r.year === effectiveYear && r.dept_e === deptLabel && r.question_value_e === v);
+      pctA = Math.round((ps?.shr_w_resp ?? 0) * 100);
+      pctB = Math.round((d?.shr_w_resp ?? 0) * 100);
+    } else {
+      const first = trend.find(r => r.year === earliestYear && r.dept_e === PS_TOTAL && r.question_value_e === v);
+      const last  = trend.find(r => r.year === latestYear   && r.dept_e === PS_TOTAL && r.question_value_e === v);
+      pctA = Math.round((first?.shr_w_resp ?? 0) * 100);
+      pctB = Math.round((last?.shr_w_resp ?? 0)  * 100);
+    }
+    return { label: v, pctA, pctB, isPositive: positiveSet.has(v) || qType === 'categorical' };
+  });
+
+  return (
+    <div>
+      {/* Legend + year toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14, flexWrap: 'wrap' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#6b7280' }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: COLOR_A, display: 'inline-block', flexShrink: 0 }} />
+          {labelA}
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#1d3557', fontWeight: 600 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: COLOR_B, display: 'inline-block', flexShrink: 0 }} />
+          {labelB}
+        </span>
+        {hasDept && (
+          <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+            {years.map(y => (
+              <button
+                key={y}
+                onClick={() => setSelectedYear(y === effectiveYear ? null : y)}
+                style={{
+                  padding: '2px 9px', fontSize: 11, borderRadius: 4, cursor: 'pointer', border: '1px solid',
+                  borderColor: effectiveYear === y ? '#1d3557' : '#e5e7eb',
+                  background:  effectiveYear === y ? '#1d3557' : '#fff',
+                  color:       effectiveYear === y ? '#fff' : '#6b7280',
+                }}
+              >{y}</button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* X-axis tick labels */}
+      <div style={{ display: 'flex', marginBottom: 4 }}>
+        <div style={{ width: 148, flexShrink: 0 }} />
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', paddingRight: 0 }}>
+          {[0, 25, 50, 75, 100].map(t => (
+            <span key={t} style={{ fontSize: 10, color: '#d1d5db', width: 28, textAlign: 'center' }}>{t}%</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Rows */}
+      {chartRows.map(r => (
+        <DumbbellRow key={r.label} label={r.label} pctA={r.pctA} pctB={r.pctB} isPositive={r.isPositive} />
+      ))}
+    </div>
   );
 }
 
@@ -643,11 +761,11 @@ export default function SnpsSurvey() {
                 </div>
               )}
 
-              {/* Multi-year bar chart */}
+              {/* Dumbbell distribution chart */}
               {loadingTrend ? (
                 <div style={{ padding: '16px 0', color: '#9ca3af', fontSize: 13 }}>Loading…</div>
               ) : (
-                <MultiYearChart trend={trend} dept={selectedDept} />
+                <DumbbellChart trend={trend} dept={selectedDept} />
               )}
 
               <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6 }}>
