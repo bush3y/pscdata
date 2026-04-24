@@ -862,8 +862,14 @@ export default function SnpsSurvey() {
                     { scores: psScoreByYear, label: 'PS Total', color: '#1d3557' },
                     ...(deptScoreByYear ? [{ scores: deptScoreByYear, label: selectedDept ?? '', color: COLOR_B }] : []),
                   ].map(({ scores: rowScores, label, color }) => (
-                    <div key={label} style={{ marginBottom: 8 }}>
-                      <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}>{label}</div>
+                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <div style={{
+                        fontSize: 11, color: '#6b7280', flexShrink: 0,
+                        maxWidth: isMobile ? 90 : 110,
+                        display: '-webkit-box', WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                        lineHeight: 1.35,
+                      }}>{label}</div>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: isMobile ? 6 : 8, flexWrap: 'wrap' }}>
                         {rowScores.map((s, i) => {
                           const prev = i > 0 ? rowScores[i - 1] : null;
@@ -888,6 +894,7 @@ export default function SnpsSurvey() {
               )}
 
               {/* Dumbbell distribution chart */}
+
               {loadingTrend ? (
                 <div style={{ padding: '16px 0', color: '#9ca3af', fontSize: 13 }}>Loading…</div>
               ) : (
