@@ -137,7 +137,7 @@ async def get_snps_dept_scores(
             [value_e, question, year, PS_TOTAL_DEPT],
         )
 
-    positive_vals = ("To a great extent", "To a moderate extent", "Yes")
+    positive_vals = ("To a great extent", "To a moderate extent", "Yes", "Selected")
     placeholders = ", ".join("?" * len(positive_vals))
     return _q(
         f"SELECT dept_e, "  # noqa: S608
