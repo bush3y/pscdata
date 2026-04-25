@@ -100,12 +100,80 @@ interface Props {
   years: number[];
 }
 
+// ── Sub-question grouping ─────────────────────────────────────────────────────
+
+// Codes with 3 parts and an integer last segment are sub-questions.
+// e.g. HMN_04_1 → base HMN_04;  YRS_01 (2 parts) → standalone.
+function getSubBase(code: string): string | null {
+  const parts = code.split('_');
+  if (parts.length === 3 && /^\d+$/.test(parts[2])) return `${parts[0]}_${parts[1]}`;
+  return null;
+}
+
+type QuestionItem =
+  | { type: 'question'; row: SnpsDeptProfileRow }
+  | { type: 'group'; base: string; label: string; rows: SnpsDeptProfileRow[]; avgDept: number | null; vsPs: number | null };
+
+function buildQuestionItems(rows: SnpsDeptProfileRow[]): QuestionItem[] {
+  const groups = new Map<string, SnpsDeptProfileRow[]>();
+  const standalone: SnpsDeptProfileRow[] = [];
+  for (const row of rows) {
+    const base = getSubBase(row.question);
+    if (base) {
+      if (!groups.has(base)) groups.set(base, []);
+      groups.get(base)!.push(row);
+    } else {
+      standalone.push(row);
+    }
+  }
+  const items: QuestionItem[] = [];
+  for (const row of standalone) items.push({ type: 'question', row });
+  for (const [base, subRows] of groups) {
+    if (subRows.length === 1) {
+      items.push({ type: 'question', row: subRows[0] });
+    } else {
+      const deptVals = subRows.map(r => r.dept_pct).filter((v): v is number => v != null);
+      const psVals   = subRows.map(r => r.ps_pct).filter((v): v is number => v != null);
+      const avgDept  = deptVals.length ? Math.round(deptVals.reduce((a, b) => a + b, 0) / deptVals.length) : null;
+      const avgPs    = psVals.length   ? Math.round(psVals.reduce((a, b) => a + b, 0) / psVals.length)   : null;
+      // Parent question text: first sub-question's text with prefix stripped
+      const label = subRows[0].question_e.replace(/^[A-Z0-9_]+ --? /, '');
+      items.push({ type: 'group', base, label, rows: subRows, avgDept, vsPs: avgDept != null && avgPs != null ? avgDept - avgPs : null });
+    }
+  }
+  items.sort((a, b) => {
+    const qa = a.type === 'question' ? a.row.question : a.base;
+    const qb = b.type === 'question' ? b.row.question : b.base;
+    return qa.localeCompare(qb);
+  });
+  return items;
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props) {
   const isMobile = useIsMobile();
   const maxYear = years.length ? Math.max(...years) : null;
   const [profileYear, setProfileYear] = useState<number | null>(null);
   const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
+  const [expandedThemes, setExpandedThemes] = useState<Set<string>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const effectiveYear = profileYear ?? maxYear;
+
+  function toggleTheme(theme: string) {
+    setExpandedThemes(prev => {
+      const next = new Set(prev);
+      next.has(theme) ? next.delete(theme) : next.add(theme);
+      return next;
+    });
+  }
+  function toggleGroup(base: string) {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      next.has(base) ? next.delete(base) : next.add(base);
+      return next;
+    });
+  }
 
   // Current year profile
   const { data: data = [], isLoading } = useSnpsDeptProfile(dept, effectiveYear);
@@ -172,6 +240,14 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
       };
     }).sort((a, b) => (b.deptAvg ?? 0) - (a.deptAvg ?? 0));
   }, [themes, data, prevThemeAvg]);
+
+  const questionItemsByTheme = useMemo(() => {
+    const map = new Map<string, QuestionItem[]>();
+    for (const t of themes) {
+      map.set(t, buildQuestionItems(data.filter(r => r.theme_e === t)));
+    }
+    return map;
+  }, [themes, data]);
 
   // Headline stats
   const scorable = data.filter(r => r.dept_pct != null && r.ps_pct != null);
@@ -384,17 +460,20 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
             </div>
           </div>
 
-          {/* Theme summary table */}
+          {/* Theme summary table — expandable to questions and sub-question groups */}
           <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: isMobile ? '14px 16px' : '16px 20px', background: '#fff' }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 12, letterSpacing: '-0.01em' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 4, letterSpacing: '-0.01em' }}>
               By theme
+            </div>
+            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 12 }}>
+              Click a theme to expand individual questions.
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
-                    <th style={{ textAlign: 'left',  padding: '6px 10px', color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>Theme</th>
-                    <th style={{ textAlign: 'right', padding: '6px 10px', color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>Dept avg</th>
+                    <th style={{ textAlign: 'left',  padding: '6px 10px', color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>Theme / Question</th>
+                    <th style={{ textAlign: 'right', padding: '6px 10px', color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>Dept</th>
                     <th style={{ textAlign: 'right', padding: '6px 10px', color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>vs PS</th>
                     {hasPeers && <th style={{ textAlign: 'right', padding: '6px 10px', color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>vs Peers</th>}
                     {prevYear  && <th style={{ textAlign: 'right', padding: '6px 10px', color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>vs {prevYear}</th>}
@@ -402,43 +481,139 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
                   </tr>
                 </thead>
                 <tbody>
-                  {themeSummaryRows.map(r => (
-                    <tr key={r.theme} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                      <td style={{ padding: '7px 10px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{
-                            width: 8, height: 8, borderRadius: '50%',
-                            background: r.color, flexShrink: 0, display: 'inline-block',
-                          }} />
-                          {r.theme}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 700, color: '#111827' }}>
-                        {r.deptAvg != null ? `${r.deptAvg}%` : '—'}
-                      </td>
-                      <td style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 600,
-                        color: r.vsPs == null ? '#9ca3af' : r.vsPs >= 0 ? '#15803d' : '#dc2626' }}>
-                        {r.vsPs != null ? (r.vsPs >= 0 ? `+${r.vsPs}` : `${r.vsPs}`) : '—'}
-                      </td>
-                      {hasPeers && (
-                        <td style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 600,
-                          color: r.vsPeers == null ? '#9ca3af' : r.vsPeers >= 0 ? '#15803d' : '#dc2626' }}>
-                          {r.vsPeers != null ? (r.vsPeers >= 0 ? `+${r.vsPeers}` : `${r.vsPeers}`) : '—'}
-                        </td>
-                      )}
-                      {prevYear && (
-                        <td style={{ textAlign: 'right', padding: '7px 10px',
-                          color: r.yoyDelta == null ? '#9ca3af'
-                            : r.yoyDelta > 0 ? '#15803d'
-                            : r.yoyDelta < 0 ? '#dc2626' : '#6b7280' }}>
-                          {r.yoyDelta != null
-                            ? `${r.yoyDelta > 0 ? '↑' : r.yoyDelta < 0 ? '↓' : '—'}${Math.abs(r.yoyDelta)}`
-                            : '—'}
-                        </td>
-                      )}
-                      <td style={{ textAlign: 'right', padding: '7px 10px', color: '#6b7280' }}>{r.count}</td>
-                    </tr>
-                  ))}
+                  {themeSummaryRows.map(r => {
+                    const isExpanded = expandedThemes.has(r.theme);
+                    const items = questionItemsByTheme.get(r.theme) ?? [];
+                    return (
+                      <>
+                        {/* Theme row */}
+                        <tr
+                          key={r.theme}
+                          onClick={() => toggleTheme(r.theme)}
+                          style={{ borderBottom: '1px solid #f3f4f6', cursor: 'pointer', background: isExpanded ? '#fafafa' : '#fff' }}
+                          onMouseEnter={e => { if (!isExpanded) (e.currentTarget as HTMLElement).style.background = '#f9fafb'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isExpanded ? '#fafafa' : '#fff'; }}
+                        >
+                          <td style={{ padding: '7px 10px', fontWeight: 600 }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontSize: 9, color: '#9ca3af', width: 10, flexShrink: 0 }}>
+                                {isExpanded ? '▼' : '▶'}
+                              </span>
+                              <span style={{
+                                width: 8, height: 8, borderRadius: '50%',
+                                background: r.color, flexShrink: 0, display: 'inline-block',
+                              }} />
+                              {r.theme}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 700, color: '#111827' }}>
+                            {r.deptAvg != null ? `${r.deptAvg}%` : '—'}
+                          </td>
+                          <td style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 600,
+                            color: r.vsPs == null ? '#9ca3af' : r.vsPs >= 0 ? '#15803d' : '#dc2626' }}>
+                            {r.vsPs != null ? (r.vsPs >= 0 ? `+${r.vsPs}` : `${r.vsPs}`) : '—'}
+                          </td>
+                          {hasPeers && (
+                            <td style={{ textAlign: 'right', padding: '7px 10px', fontWeight: 600,
+                              color: r.vsPeers == null ? '#9ca3af' : r.vsPeers >= 0 ? '#15803d' : '#dc2626' }}>
+                              {r.vsPeers != null ? (r.vsPeers >= 0 ? `+${r.vsPeers}` : `${r.vsPeers}`) : '—'}
+                            </td>
+                          )}
+                          {prevYear && (
+                            <td style={{ textAlign: 'right', padding: '7px 10px',
+                              color: r.yoyDelta == null ? '#9ca3af' : r.yoyDelta > 0 ? '#15803d' : r.yoyDelta < 0 ? '#dc2626' : '#6b7280' }}>
+                              {r.yoyDelta != null ? `${r.yoyDelta > 0 ? '↑' : r.yoyDelta < 0 ? '↓' : '—'}${Math.abs(r.yoyDelta)}` : '—'}
+                            </td>
+                          )}
+                          <td style={{ textAlign: 'right', padding: '7px 10px', color: '#6b7280' }}>{r.count}</td>
+                        </tr>
+
+                        {/* Expanded: question items */}
+                        {isExpanded && items.map(item => {
+                          if (item.type === 'question') {
+                            const row = item.row;
+                            const delta = row.dept_pct != null && row.ps_pct != null ? row.dept_pct - row.ps_pct : null;
+                            return (
+                              <tr key={row.question} style={{ borderBottom: '1px solid #f9fafb', background: '#fafafa' }}>
+                                <td style={{ padding: '5px 10px 5px 28px', fontSize: 11, color: '#374151', lineHeight: 1.4 }}>
+                                  <span style={{ color: '#9ca3af', marginRight: 6, fontSize: 10 }}>{row.question}</span>
+                                  {row.question_e.replace(/^[A-Z0-9_]+ --? /, '')}
+                                </td>
+                                <td style={{ textAlign: 'right', padding: '5px 10px', fontWeight: 600, fontSize: 11, color: '#374151' }}>
+                                  {row.dept_pct != null ? `${row.dept_pct}%` : '—'}
+                                </td>
+                                <td style={{ textAlign: 'right', padding: '5px 10px', fontSize: 11,
+                                  color: delta == null ? '#9ca3af' : delta >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
+                                  {delta != null ? (delta >= 0 ? `+${delta}` : `${delta}`) : '—'}
+                                </td>
+                                {hasPeers  && <td style={{ textAlign: 'right', padding: '5px 10px', fontSize: 11, color: '#9ca3af' }}>—</td>}
+                                {prevYear  && <td style={{ textAlign: 'right', padding: '5px 10px', fontSize: 11, color: '#9ca3af' }}>—</td>}
+                                <td />
+                              </tr>
+                            );
+                          }
+
+                          // Sub-question group row
+                          const grp = item;
+                          const grpExpanded = expandedGroups.has(grp.base);
+                          const grpDelta = grp.vsPs;
+                          return (
+                            <>
+                              <tr
+                                key={grp.base}
+                                onClick={() => toggleGroup(grp.base)}
+                                style={{ borderBottom: '1px solid #f9fafb', background: '#fafafa', cursor: 'pointer' }}
+                              >
+                                <td style={{ padding: '5px 10px 5px 28px', fontSize: 11, color: '#374151', lineHeight: 1.4 }}>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ fontSize: 8, color: '#9ca3af', width: 10, flexShrink: 0 }}>
+                                      {grpExpanded ? '▼' : '▶'}
+                                    </span>
+                                    <span style={{ color: '#9ca3af', marginRight: 4, fontSize: 10 }}>{grp.base}</span>
+                                    <span style={{ fontStyle: 'italic' }}>{grp.label}</span>
+                                    <span style={{ color: '#9ca3af', fontSize: 10 }}>({grp.rows.length} items)</span>
+                                  </span>
+                                </td>
+                                <td style={{ textAlign: 'right', padding: '5px 10px', fontWeight: 600, fontSize: 11, color: '#374151' }}>
+                                  {grp.avgDept != null ? `${grp.avgDept}%` : '—'}
+                                </td>
+                                <td style={{ textAlign: 'right', padding: '5px 10px', fontSize: 11,
+                                  color: grpDelta == null ? '#9ca3af' : grpDelta >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
+                                  {grpDelta != null ? (grpDelta >= 0 ? `+${grpDelta}` : `${grpDelta}`) : '—'}
+                                </td>
+                                {hasPeers && <td style={{ textAlign: 'right', padding: '5px 10px', fontSize: 11, color: '#9ca3af' }}>—</td>}
+                                {prevYear  && <td style={{ textAlign: 'right', padding: '5px 10px', fontSize: 11, color: '#9ca3af' }}>—</td>}
+                                <td style={{ textAlign: 'right', padding: '5px 10px', fontSize: 11, color: '#9ca3af' }}>{grp.rows.length}</td>
+                              </tr>
+
+                              {/* Expanded sub-questions */}
+                              {grpExpanded && grp.rows.map(subRow => {
+                                const subDelta = subRow.dept_pct != null && subRow.ps_pct != null ? subRow.dept_pct - subRow.ps_pct : null;
+                                return (
+                                  <tr key={subRow.question} style={{ borderBottom: '1px solid #f9fafb', background: '#f5f6f8' }}>
+                                    <td style={{ padding: '4px 10px 4px 48px', fontSize: 10.5, color: '#6b7280', lineHeight: 1.4 }}>
+                                      <span style={{ color: '#d1d5db', marginRight: 6, fontSize: 9 }}>{subRow.question}</span>
+                                      {subRow.question_e.replace(/^[A-Z0-9_]+ --? /, '')}
+                                    </td>
+                                    <td style={{ textAlign: 'right', padding: '4px 10px', fontSize: 10.5, fontWeight: 600, color: '#374151' }}>
+                                      {subRow.dept_pct != null ? `${subRow.dept_pct}%` : '—'}
+                                    </td>
+                                    <td style={{ textAlign: 'right', padding: '4px 10px', fontSize: 10.5,
+                                      color: subDelta == null ? '#9ca3af' : subDelta >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
+                                      {subDelta != null ? (subDelta >= 0 ? `+${subDelta}` : `${subDelta}`) : '—'}
+                                    </td>
+                                    {hasPeers && <td style={{ textAlign: 'right', padding: '4px 10px', fontSize: 10.5, color: '#d1d5db' }}>—</td>}
+                                    {prevYear  && <td style={{ textAlign: 'right', padding: '4px 10px', fontSize: 10.5, color: '#d1d5db' }}>—</td>}
+                                    <td />
+                                  </tr>
+                                );
+                              })}
+                            </>
+                          );
+                        })}
+                      </>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
