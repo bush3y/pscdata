@@ -606,12 +606,12 @@ function QuestionList({
               }}
               onMouseEnter={e => { if (selected !== q.question) e.currentTarget.style.background = '#f9fafb'; }}
               onMouseLeave={e => { if (selected !== q.question) e.currentTarget.style.background = 'none'; }}
-              title={q.question_e}
+              title={q.question_e.replace(/^[A-Z0-9_]+ --? /, '')}
             >
               <span style={{ fontSize: 10, color: '#6b7280', display: 'block', marginBottom: 1 }}>
                 {q.question} · {respondentGroup(q.question)}
               </span>
-              {q.question_e.length > 80 ? q.question_e.slice(0, 80) + '…' : q.question_e}
+              {(() => { const t = q.question_e.replace(/^[A-Z0-9_]+ --? /, ''); return t.length > 80 ? t.slice(0, 80) + '…' : t; })()}
             </button>
           ))}
         </div>
@@ -833,8 +833,8 @@ export default function SnpsSurvey() {
                         {selectedQuestion}
                       </span>
                     </div>
-                    <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#111827', lineHeight: 1.5 }}>
-                      {questionMeta.question_e}
+                    <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#111827', lineHeight: 1.45 }}>
+                      {questionMeta.question_e.replace(/^[A-Z0-9_]+ --? /, '')}
                     </p>
                     {questionMeta.category_e && (
                       <p style={{ margin: '4px 0 0', fontSize: 12, color: '#6b7280' }}>{questionMeta.category_e}</p>
