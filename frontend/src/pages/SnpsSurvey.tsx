@@ -159,10 +159,10 @@ const COLOR_B = '#c2410c'; // selected dept or latest year  (orange, like NYT)
 const TRACK_BUFFER = 28; // px reserved on each side for label overflow
 
 function DumbbellRow({
-  label, pctA, pctB, colorA, colorB, isPositive, labelWidth,
+  label, pctA, pctB, colorA, colorB, isPositive, labelWidth, singleMode,
 }: {
   label: string; pctA: number; pctB: number;
-  colorA: string; colorB: string; isPositive: boolean; labelWidth: number;
+  colorA: string; colorB: string; isPositive: boolean; labelWidth: number; singleMode?: boolean;
 }) {
   const minPct = Math.min(pctA, pctB);
   const maxPct = Math.max(pctA, pctB);
@@ -189,60 +189,73 @@ function DumbbellRow({
             borderTop: '1px dashed #e5e7eb', transform: 'translateY(-0.5px)',
             pointerEvents: 'none',
           }} />
-          {/* Solid connector */}
-          {gap > 0 && (
-            <div style={{
-              position: 'absolute', top: '50%',
-              left: `${minPct}%`, width: `${gap}%`,
-              height: 1.5, background: '#d1d5db', transform: 'translateY(-50%)',
-            }} />
+          {!singleMode && (
+            <>
+              {/* Solid connector */}
+              {gap > 0 && (
+                <div style={{
+                  position: 'absolute', top: '50%',
+                  left: `${minPct}%`, width: `${gap}%`,
+                  height: 1.5, background: '#d1d5db', transform: 'translateY(-50%)',
+                }} />
+              )}
+              {/* Tick A */}
+              <div style={{
+                position: 'absolute', top: '50%', left: `${pctA}%`,
+                transform: 'translate(-50%, -50%)',
+                width: 2, height: 16, background: colorA, borderRadius: 1,
+              }} />
+            </>
           )}
-          {/* Tick A */}
-          <div style={{
-            position: 'absolute', top: '50%', left: `${pctA}%`,
-            transform: 'translate(-50%, -50%)',
-            width: 2, height: 16, background: colorA, borderRadius: 1,
-          }} />
           {/* Tick B */}
           <div style={{
             position: 'absolute', top: '50%', left: `${pctB}%`,
             transform: 'translate(-50%, -50%)',
             width: 2, height: 16, background: colorB, borderRadius: 1,
           }} />
-          {/* Labels — each faces OUTWARD from the connection.
-              If A is the left tick, A label goes left and B label goes right.
-              If A is the right tick (pctA > pctB), flip: A label goes right, B label goes left.
-              With the buffer margins, even 0% and 100% values have room. */}
-          {(() => {
-            const aIsLeft = pctA <= pctB;
-            return (
-              <>
-                <div style={{
-                  position: 'absolute', top: '50%',
-                  ...(aIsLeft
-                    ? { right: `${100 - pctA}%`, paddingRight: 5 }
-                    : { left: `${pctA}%`, paddingLeft: 5 }),
-                  transform: 'translateY(-50%)',
-                  fontSize: 10.5, color: colorA, fontWeight: 600, whiteSpace: 'nowrap',
-                }}>{pctA}%</div>
-                <div style={{
-                  position: 'absolute', top: '50%',
-                  ...(aIsLeft
-                    ? { left: `${pctB}%`, paddingLeft: 5 }
-                    : { right: `${100 - pctB}%`, paddingRight: 5 }),
-                  transform: 'translateY(-50%)',
-                  fontSize: 10.5, color: colorB, fontWeight: 700, whiteSpace: 'nowrap',
-                }}>{pctB}%</div>
-              </>
-            );
-          })()}
+          {singleMode ? (
+            /* Single-mode label: right of dot when ≤50%, left when >50% */
+            <div style={{
+              position: 'absolute', top: '50%',
+              ...(pctB <= 50
+                ? { left: `${pctB}%`, paddingLeft: 5 }
+                : { right: `${100 - pctB}%`, paddingRight: 5 }),
+              transform: 'translateY(-50%)',
+              fontSize: 10.5, color: colorB, fontWeight: 700, whiteSpace: 'nowrap',
+            }}>{pctB}%</div>
+          ) : (
+            /* Dumbbell labels — each faces OUTWARD from the connection */
+            (() => {
+              const aIsLeft = pctA <= pctB;
+              return (
+                <>
+                  <div style={{
+                    position: 'absolute', top: '50%',
+                    ...(aIsLeft
+                      ? { right: `${100 - pctA}%`, paddingRight: 5 }
+                      : { left: `${pctA}%`, paddingLeft: 5 }),
+                    transform: 'translateY(-50%)',
+                    fontSize: 10.5, color: colorA, fontWeight: 600, whiteSpace: 'nowrap',
+                  }}>{pctA}%</div>
+                  <div style={{
+                    position: 'absolute', top: '50%',
+                    ...(aIsLeft
+                      ? { left: `${pctB}%`, paddingLeft: 5 }
+                      : { right: `${100 - pctB}%`, paddingRight: 5 }),
+                    transform: 'translateY(-50%)',
+                    fontSize: 10.5, color: colorB, fontWeight: 700, whiteSpace: 'nowrap',
+                  }}>{pctB}%</div>
+                </>
+              );
+            })()
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-type CompareMode = 'dept' | 'year';
+type CompareMode = 'dept' | 'year' | 'single';
 
 function DumbbellChart({ trend, dept, selectedYear }: {
   trend: SnpsResponseRow[]; dept: string | null; selectedYear: number | null;
@@ -263,7 +276,9 @@ function DumbbellChart({ trend, dept, selectedYear }: {
 
   if (!latestYear) return <div style={{ color: '#6b7280', fontSize: 13, padding: '16px 0' }}>No data available.</div>;
 
-  const effectiveMode: CompareMode = hasDept ? mode : 'year';
+  // 'dept' falls back to 'year' when no dept is selected
+  const effectiveMode: CompareMode = (mode === 'dept' && !hasDept) ? 'year' : mode;
+  const entity = hasDept ? deptLabel : PS_TOTAL;
   const referenceYear = effectiveMode === 'dept' ? effectiveYear : latestYear;
   const values      = sortedValues(trend.filter(r => r.year === referenceYear));
   const qType       = detectType(values);
@@ -271,35 +286,49 @@ function DumbbellChart({ trend, dept, selectedYear }: {
 
   const colorA = COLOR_A, colorB = COLOR_B;
   const labelA = effectiveMode === 'dept' ? 'PS Total' : String(prevYear ?? years[0]);
-  const labelB = effectiveMode === 'dept' ? deptLabel : String(latestYear);
+  const labelB = effectiveMode === 'dept' ? deptLabel : effectiveMode === 'year' ? String(latestYear) : entity;
 
-  const chartRows = values.map(v => {
+  const singleValues = effectiveMode === 'single'
+    ? sortedValues(trend.filter(r => r.year === effectiveYear))
+    : values;
+
+  const chartRows = singleValues.map(v => {
     let pctA = 0, pctB = 0;
     if (effectiveMode === 'dept') {
       const ps = trend.find(r => r.year === effectiveYear && r.dept_e === PS_TOTAL && r.question_value_e === v);
       const d  = trend.find(r => r.year === effectiveYear && r.dept_e === deptLabel  && r.question_value_e === v);
       pctA = Math.round((ps?.shr_w_resp ?? 0) * 100);
       pctB = Math.round((d?.shr_w_resp  ?? 0) * 100);
-    } else {
-      const entity = hasDept ? deptLabel : PS_TOTAL;
+    } else if (effectiveMode === 'year') {
       const yearA  = prevYear ?? years[0];
       const rA = trend.find(r => r.year === yearA      && r.dept_e === entity && r.question_value_e === v);
       const rB = trend.find(r => r.year === latestYear && r.dept_e === entity && r.question_value_e === v);
       pctA = Math.round((rA?.shr_w_resp ?? 0) * 100);
       pctB = Math.round((rB?.shr_w_resp ?? 0) * 100);
+    } else {
+      const r = trend.find(r => r.year === effectiveYear && r.dept_e === entity && r.question_value_e === v);
+      pctB = Math.round((r?.shr_w_resp ?? 0) * 100);
     }
     return { label: v, pctA, pctB, isPositive: positiveSet.has(v) || qType === 'categorical' };
   });
 
+  // Toggle options: always show 'single'; add 'year' when prevYear exists; add 'dept' when hasDept
+  const toggleOptions: [CompareMode, string][] = [
+    ...(hasDept ? [['dept', 'Dept vs PS Total'] as [CompareMode, string]] : []),
+    ...(prevYear ? [['year', `${prevYear} → ${latestYear}`] as [CompareMode, string]] : []),
+    ['single', 'Single year'],
+  ];
+  const showToggle = toggleOptions.length > 1;
+
   return (
     <div>
-      {/* Mode toggle — only when dept is selected and there are ≥2 years */}
-      {hasDept && prevYear && (
+      {/* Mode toggle */}
+      {showToggle && (
         <div style={{
           display: 'inline-flex', border: '1px solid #e5e7eb', borderRadius: 6,
           overflow: 'hidden', marginBottom: 12,
         }}>
-          {([['dept', 'Dept vs PS Total'], ['year', `${prevYear} → ${latestYear}`]] as [CompareMode, string][]).map(([m, lbl]) => (
+          {toggleOptions.map(([m, lbl]) => (
             <button
               key={m}
               onClick={() => setMode(m)}
@@ -314,12 +343,14 @@ function DumbbellChart({ trend, dept, selectedYear }: {
         </div>
       )}
 
-      {/* Legend + year picker */}
+      {/* Legend */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6b7280' }}>
-          <span style={{ width: 2, height: 13, background: colorA, display: 'inline-block', borderRadius: 1, flexShrink: 0 }} />
-          {labelA}
-        </span>
+        {effectiveMode !== 'single' && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#6b7280' }}>
+            <span style={{ width: 2, height: 13, background: colorA, display: 'inline-block', borderRadius: 1, flexShrink: 0 }} />
+            {labelA}
+          </span>
+        )}
         <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: colorB, fontWeight: 600 }}>
           <span style={{ width: 2, height: 13, background: colorB, display: 'inline-block', borderRadius: 1, flexShrink: 0 }} />
           {labelB}
@@ -356,7 +387,7 @@ function DumbbellChart({ trend, dept, selectedYear }: {
             key={r.label}
             label={r.label} pctA={r.pctA} pctB={r.pctB}
             colorA={colorA} colorB={colorB} isPositive={r.isPositive}
-            labelWidth={labelWidth}
+            labelWidth={labelWidth} singleMode={effectiveMode === 'single'}
           />
         ))}
       </div>
