@@ -249,6 +249,17 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
     return map;
   }, [themes, data]);
 
+  // Outlier detection — top 3 above and bottom 3 below the parity line by delta
+  const outlierCodes = useMemo(() => {
+    const scored = data
+      .filter(r => r.dept_pct != null && r.ps_pct != null)
+      .map(r => ({ question: r.question, delta: r.dept_pct! - r.ps_pct! }))
+      .sort((a, b) => b.delta - a.delta);
+    const top = scored.slice(0, 3);
+    const bot = scored.slice(-3);
+    return new Set([...top, ...bot].map(r => r.question));
+  }, [data]);
+
   // Headline stats
   const scorable = data.filter(r => r.dept_pct != null && r.ps_pct != null);
   const abovePS  = scorable.filter(r => r.dept_pct! > r.ps_pct!).length;
@@ -395,17 +406,29 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
                       data={points}
                       fill={color}
                       isAnimationActive={false}
-                      shape={(props: { cx?: number; cy?: number }) => {
-                        const { cx = 0, cy = 0 } = props;
+                      shape={(props: { cx?: number; cy?: number; question?: string }) => {
+                        const { cx = 0, cy = 0, question } = props;
+                        const r = isMobile ? 4 : 6;
+                        const isOutlier = !muted && !!question && outlierCodes.has(question);
                         return (
-                          <circle
-                            cx={cx} cy={cy}
-                            r={isMobile ? 4 : 6}
-                            fill={muted ? '#e5e7eb' : color}
-                            opacity={muted ? 0.4 : 0.85}
-                            stroke={muted ? '#d1d5db' : '#fff'}
-                            strokeWidth={1.5}
-                          />
+                          <g>
+                            <circle
+                              cx={cx} cy={cy} r={r}
+                              fill={muted ? '#e5e7eb' : color}
+                              opacity={muted ? 0.4 : 0.85}
+                              stroke={muted ? '#d1d5db' : '#fff'}
+                              strokeWidth={1.5}
+                            />
+                            {isOutlier && (
+                              <circle
+                                cx={cx} cy={cy} r={r + 5}
+                                fill="none"
+                                stroke={color}
+                                strokeWidth={1.5}
+                                opacity={0.6}
+                              />
+                            )}
+                          </g>
                         );
                       }}
                     />
