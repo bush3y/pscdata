@@ -79,3 +79,32 @@ export const useSnpsDeptScores = (question: string | null, year: number | null, 
     enabled: !!question,
     staleTime: 5 * 60_000,
   });
+
+export interface SnpsDeptProfileRow {
+  question: string;
+  theme_e: string;
+  theme_f: string;
+  category_e: string;
+  question_e: string;
+  question_f: string;
+  dept_pct: number | null;
+  ps_pct: number | null;
+  peer_avg_pct: number | null;
+  peer_count: number;
+  tier_label: string | null;
+  rank_all: number | null;
+  total_depts: number;
+  n_respondents: number | null;
+  year: number;
+}
+
+export const useSnpsDeptProfile = (dept: string | null, year: number | null) =>
+  useQuery<SnpsDeptProfileRow[]>({
+    queryKey: ['snps-dept-profile', dept, year],
+    queryFn: () =>
+      client.get('/snps/dept-profile', {
+        params: { dept, ...(year ? { year } : {}) },
+      }).then(r => r.data),
+    enabled: !!dept,
+    staleTime: 5 * 60_000,
+  });

@@ -14,6 +14,7 @@ import {
   type SnpsQuestion,
   type SnpsResponseRow,
 } from '../api/snps';
+import SnpsDeptProfileTab from './SnpsDeptProfileTab';
 
 // ── Responsive hook ──────────────────────────────────────────────────────────
 
@@ -659,6 +660,9 @@ export default function SnpsSurvey() {
   const [selectedDept, _setSelectedDept] = useState<string | null>(() => searchParams.get('dept'));
   const [selectedQuestion, _setSelectedQuestion] = useState<string | null>(() => searchParams.get('q'));
   const [browseYear, setBrowseYear] = useState<number | null>(null);
+  const [activeTab, _setActiveTab] = useState<'browse' | 'profile'>(
+    () => searchParams.get('tab') === 'profile' ? 'profile' : 'browse'
+  );
 
   function setSelectedDept(dept: string | null) {
     _setSelectedDept(dept);
@@ -668,6 +672,11 @@ export default function SnpsSurvey() {
   function setSelectedQuestion(q: string | null) {
     _setSelectedQuestion(q);
     setSearchParams(p => { q ? p.set('q', q) : p.delete('q'); return p; }, { replace: true });
+  }
+
+  function setActiveTab(tab: 'browse' | 'profile') {
+    _setActiveTab(tab);
+    setSearchParams(p => { p.set('tab', tab); return p; }, { replace: true });
   }
 
   const { data: years = [] } = useSnpsYears();
@@ -735,13 +744,40 @@ export default function SnpsSurvey() {
       <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>
         Staffing and Non-Partisanship Survey
       </h2>
-      <p style={{ margin: '0 0 20px', fontSize: 13, color: '#6b7280' }}>
+      <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280' }}>
         What federal employees, managers, and staffing advisors say about staffing and merit.
         PSC surveys — {years.join(', ')}.
       </p>
 
-      {/* Layout: two-column on desktop, single-column on mobile */}
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexDirection: isMobile ? 'column' : 'row' }}>
+      {/* Tab navigation */}
+      <div style={{ display: 'inline-flex', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden', marginBottom: 20 }}>
+        {(['browse', 'profile'] as const).map((tab, i) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: '6px 16px', fontSize: 12, cursor: 'pointer', border: 'none',
+              borderLeft: i > 0 ? '1px solid #e5e7eb' : 'none',
+              background: activeTab === tab ? '#1d3557' : '#fff',
+              color:      activeTab === tab ? '#fff' : '#6b7280',
+              fontWeight: activeTab === tab ? 600 : 400,
+            }}
+          >
+            {tab === 'browse' ? 'Browse questions' : 'Dept Profile'}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'profile' && (
+        <SnpsDeptProfileTab
+          dept={selectedDept}
+          onDeptChange={setSelectedDept}
+          years={years}
+        />
+      )}
+
+      {/* Browse tab: two-column on desktop, single-column on mobile */}
+      {activeTab === 'browse' && <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexDirection: isMobile ? 'column' : 'row' }}>
 
         {/* Left: question browser */}
         {showList && (
@@ -782,6 +818,20 @@ export default function SnpsSurvey() {
                 // On mobile, scroll to top so the detail view starts at the top
                 if (isMobile) window.scrollTo({ top: 0, behavior: 'smooth' });
               }} />
+            )}
+            {selectedDept && (
+              <div style={{ padding: '8px 12px', borderTop: '1px solid #e5e7eb' }}>
+                <button
+                  onClick={() => setActiveTab('profile')}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: '#1d3557', fontSize: 11, fontWeight: 600,
+                    textDecoration: 'underline', padding: 0,
+                  }}
+                >
+                  View dept profile →
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -978,7 +1028,7 @@ export default function SnpsSurvey() {
           )}
         </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
