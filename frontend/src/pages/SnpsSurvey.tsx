@@ -244,7 +244,9 @@ function DumbbellRow({
 
 type CompareMode = 'dept' | 'year';
 
-function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string | null }) {
+function DumbbellChart({ trend, dept, selectedYear }: {
+  trend: SnpsResponseRow[]; dept: string | null; selectedYear: number | null;
+}) {
   const isMobile   = useIsMobile();
   const labelWidth = isMobile ? 96 : 140;
   const axisTicks  = isMobile ? [0, 50, 100] : [0, 25, 50, 75, 100];
@@ -256,8 +258,7 @@ function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string
   const latestYear = years.length ? years[years.length - 1] : null;
   const prevYear   = years.length > 1 ? years[years.length - 2] : null;
 
-  const [mode, setMode]                 = useState<CompareMode>('dept');
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [mode, setMode] = useState<CompareMode>('dept');
   const effectiveYear = selectedYear ?? latestYear;
 
   if (!latestYear) return <div style={{ color: '#6b7280', fontSize: 13, padding: '16px 0' }}>No data available.</div>;
@@ -323,22 +324,6 @@ function DumbbellChart({ trend, dept }: { trend: SnpsResponseRow[]; dept: string
           <span style={{ width: 2, height: 13, background: colorB, display: 'inline-block', borderRadius: 1, flexShrink: 0 }} />
           {labelB}
         </span>
-        {effectiveMode === 'dept' && (
-          <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
-            {years.map(y => (
-              <button
-                key={y}
-                onClick={() => setSelectedYear(y === effectiveYear ? null : y)}
-                style={{
-                  padding: '2px 8px', fontSize: 11, borderRadius: 4, cursor: 'pointer', border: '1px solid',
-                  borderColor: effectiveYear === y ? '#1d3557' : '#e5e7eb',
-                  background:  effectiveYear === y ? '#1d3557' : '#fff',
-                  color:       effectiveYear === y ? '#fff' : '#6b7280',
-                }}
-              >{y}</button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* X-axis tick labels — offset by TRACK_BUFFER to align with inner track */}
@@ -387,17 +372,18 @@ function DeptRankingChart({
   selectedDept,
   qType,
   trend,
+  selectedYear,
 }: {
   question: string;
   years: number[];
   selectedDept: string | null;
   qType: QuestionType;
   trend: SnpsResponseRow[];
+  selectedYear: number | null;
 }) {
   const latestYear = years.length ? Math.max(...years) : null;
-  const [rankYear, setRankYear] = useState<number | null>(null);
   const [selectedValue, setSelectedValue] = useState<string | null>(null);
-  const effectiveYear = rankYear ?? latestYear;
+  const effectiveYear = selectedYear ?? latestYear;
 
   const isCategorical = qType === 'categorical';
 
@@ -425,7 +411,7 @@ function DeptRankingChart({
     if (payload?.value !== highlightDept) return null;
     return (
       <g transform={`translate(${x},${y + 4})`}>
-        <polygon points="0,-5 4,2 -4,2" fill="#1d3557" />
+        <polygon points="0,-5 4,2 -4,2" fill={COLOR_B} />
       </g>
     );
   };
@@ -442,7 +428,7 @@ function DeptRankingChart({
         padding: '7px 11px', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
         maxWidth: 220,
       }}>
-        <div style={{ fontWeight: isHighlight ? 700 : 600, color: isHighlight ? '#1d3557' : '#374151', marginBottom: 3, lineHeight: 1.4 }}>
+        <div style={{ fontWeight: isHighlight ? 700 : 600, color: isHighlight ? COLOR_B : '#374151', marginBottom: 3, lineHeight: 1.4 }}>
           {d.dept_e}
         </div>
         <div style={{ color: '#6b7280' }}>{d.positive_pct}% positive</div>
@@ -457,7 +443,7 @@ function DeptRankingChart({
     return (
       <text
         x={x + width / 2} y={y - 5}
-        textAnchor="middle" fill="#1d3557"
+        textAnchor="middle" fill={COLOR_B}
         fontSize={11} fontWeight={700}
       >
         {value}%
@@ -471,40 +457,29 @@ function DeptRankingChart({
         <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', letterSpacing: '-0.01em' }}>How departments compare</div>
         {highlightRank !== null && (
           <div style={{ fontSize: 12, color: '#6b7280' }}>
-            <span style={{ color: '#1d3557', fontWeight: 700 }}>
+            <span style={{ color: COLOR_B, fontWeight: 700 }}>
               {highlightDept === PS_TOTAL ? 'PS Total' : (highlightDept.length > 30 ? highlightDept.slice(0, 30) + '…' : highlightDept)}
             </span>
             {' '}ranks {highlightRank} of {scores.length}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', flexWrap: 'wrap' }}>
-          {isCategorical && valuesForYear.map(v => (
-            <button
-              key={v}
-              onClick={() => setSelectedValue(v === effectiveValue ? null : v)}
-              style={{
-                padding: '3px 10px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
-                border: '1px solid',
-                borderColor: effectiveValue === v ? '#0f766e' : '#e5e7eb',
-                background: effectiveValue === v ? '#0f766e' : '#fff',
-                color: effectiveValue === v ? '#fff' : '#6b7280',
-              }}
-            >{v}</button>
-          ))}
-          {years.map(y => (
-            <button
-              key={y}
-              onClick={() => setRankYear(y === effectiveYear ? null : y)}
-              style={{
-                padding: '3px 10px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
-                border: '1px solid',
-                borderColor: effectiveYear === y ? '#1d3557' : '#e5e7eb',
-                background: effectiveYear === y ? '#1d3557' : '#fff',
-                color: effectiveYear === y ? '#fff' : '#6b7280',
-              }}
-            >{y}</button>
-          ))}
-        </div>
+        {isCategorical && (
+          <div style={{ display: 'flex', gap: 4, marginLeft: 'auto', flexWrap: 'wrap' }}>
+            {valuesForYear.map(v => (
+              <button
+                key={v}
+                onClick={() => setSelectedValue(v === effectiveValue ? null : v)}
+                style={{
+                  padding: '3px 10px', fontSize: 11, borderRadius: 4, cursor: 'pointer',
+                  border: '1px solid',
+                  borderColor: effectiveValue === v ? '#0f766e' : '#e5e7eb',
+                  background: effectiveValue === v ? '#0f766e' : '#fff',
+                  color: effectiveValue === v ? '#fff' : '#6b7280',
+                }}
+              >{v}</button>
+            ))}
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -540,7 +515,7 @@ function DeptRankingChart({
                 {scores.map(s => (
                   <Cell
                     key={s.dept_e}
-                    fill={s.dept_e === highlightDept ? '#1d3557' : '#d1d5db'}
+                    fill={s.dept_e === highlightDept ? COLOR_B : '#d1d5db'}
                     opacity={s.dept_e === highlightDept ? 1 : 0.7}
                   />
                 ))}
@@ -712,6 +687,12 @@ export default function SnpsSurvey() {
       }))
     : null;
 
+  // Shared year selection — controls both dumbbell and ranking chart
+  const [detailYear, setDetailYear] = useState<number | null>(null);
+  const effectiveDetailYear = detailYear ?? (trendYears.length ? trendYears[trendYears.length - 1] : null);
+  // Reset when question changes
+  useEffect(() => { setDetailYear(null); }, [selectedQuestion]);
+
   const isMobile = useIsMobile();
 
   // On mobile, treat selecting a question as navigating to the detail view
@@ -864,7 +845,25 @@ export default function SnpsSurvey() {
 
               {/* ── Section 2: Response distribution ── */}
               <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: isMobile ? '14px 16px' : '16px 20px', background: '#fff' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 14, letterSpacing: '-0.01em' }}>Response distribution</div>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', letterSpacing: '-0.01em' }}>Response distribution</div>
+                  {trendYears.length > 1 && (
+                    <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+                      {trendYears.map(y => (
+                        <button
+                          key={y}
+                          onClick={() => setDetailYear(y === effectiveDetailYear ? null : y)}
+                          style={{
+                            padding: '2px 8px', fontSize: 11, borderRadius: 4, cursor: 'pointer', border: '1px solid',
+                            borderColor: effectiveDetailYear === y ? '#1d3557' : '#e5e7eb',
+                            background:  effectiveDetailYear === y ? '#1d3557' : '#fff',
+                            color:       effectiveDetailYear === y ? '#fff' : '#6b7280',
+                          }}
+                        >{y}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
               {/* Positive score summary — CSS grid so year columns align across both rows */}
               {isScored && psScoreByYear.length > 0 && (() => {
@@ -919,7 +918,7 @@ export default function SnpsSurvey() {
               {loadingTrend ? (
                 <div style={{ padding: '16px 0', color: '#6b7280', fontSize: 13 }}>Loading…</div>
               ) : (
-                <DumbbellChart trend={trend} dept={selectedDept} />
+                <DumbbellChart trend={trend} dept={selectedDept} selectedYear={effectiveDetailYear} />
               )}
 
               <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>
@@ -941,6 +940,7 @@ export default function SnpsSurvey() {
                 selectedDept={selectedDept}
                 qType={qType}
                 trend={trend}
+                selectedYear={effectiveDetailYear}
               />
               </div>
             </div>
