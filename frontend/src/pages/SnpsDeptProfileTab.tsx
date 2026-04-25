@@ -307,8 +307,10 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
                   isAnimationActive={false}
                   legendType="none"
                 />
-                {/* One Scatter per theme for independent fill */}
-                {scatterByTheme.map(({ theme, color, points }) => {
+                {/* One Scatter per theme — selected theme rendered last so it sits on top */}
+                {[...scatterByTheme].sort((a, b) =>
+                  a.theme === selectedTheme ? 1 : b.theme === selectedTheme ? -1 : 0
+                ).map(({ theme, color, points }) => {
                   const muted = selectedTheme !== null && selectedTheme !== theme;
                   return (
                     <Scatter
