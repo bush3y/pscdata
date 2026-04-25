@@ -104,6 +104,7 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
   const isMobile = useIsMobile();
   const maxYear = years.length ? Math.max(...years) : null;
   const [profileYear, setProfileYear] = useState<number | null>(null);
+  const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
   const effectiveYear = profileYear ?? maxYear;
 
   // Current year profile
@@ -307,41 +308,77 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
                   legendType="none"
                 />
                 {/* One Scatter per theme for independent fill */}
-                {scatterByTheme.map(({ theme, color, points }) => (
-                  <Scatter
-                    key={theme}
-                    name={theme}
-                    data={points}
-                    fill={color}
-                    isAnimationActive={false}
-                    shape={(props: { cx?: number; cy?: number }) => {
-                      const { cx = 0, cy = 0 } = props;
-                      return (
-                        <circle
-                          cx={cx} cy={cy}
-                          r={isMobile ? 4 : 6}
-                          fill={color} opacity={0.75}
-                          stroke="#fff" strokeWidth={1.5}
-                        />
-                      );
-                    }}
-                  />
-                ))}
+                {scatterByTheme.map(({ theme, color, points }) => {
+                  const muted = selectedTheme !== null && selectedTheme !== theme;
+                  return (
+                    <Scatter
+                      key={theme}
+                      name={theme}
+                      data={points}
+                      fill={color}
+                      isAnimationActive={false}
+                      shape={(props: { cx?: number; cy?: number }) => {
+                        const { cx = 0, cy = 0 } = props;
+                        return (
+                          <circle
+                            cx={cx} cy={cy}
+                            r={isMobile ? 4 : 6}
+                            fill={muted ? '#e5e7eb' : color}
+                            opacity={muted ? 0.4 : 0.85}
+                            stroke={muted ? '#d1d5db' : '#fff'}
+                            strokeWidth={1.5}
+                          />
+                        );
+                      }}
+                    />
+                  );
+                })}
                 <Tooltip content={(props: any) => <ProfileTooltip {...props} dept={deptLabel} />} />
               </ComposedChart>
             </ResponsiveContainer>
 
-            {/* Theme legend */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
-              {themes.map(t => (
-                <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#374151' }}>
-                  <span style={{
-                    width: 10, height: 10, borderRadius: '50%',
-                    background: themeColor(themes, t), flexShrink: 0, display: 'inline-block',
-                  }} />
-                  {t}
-                </span>
-              ))}
+            {/* Theme legend — click to isolate, click again to clear */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+              {themes.map(t => {
+                const active = selectedTheme === t;
+                const dimmed = selectedTheme !== null && !active;
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setSelectedTheme(active ? null : t)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      fontSize: 11, cursor: 'pointer',
+                      padding: '3px 8px', borderRadius: 99,
+                      border: active ? `1px solid ${themeColor(themes, t)}` : '1px solid transparent',
+                      background: active ? `${themeColor(themes, t)}18` : 'none',
+                      color: dimmed ? '#9ca3af' : '#374151',
+                      opacity: dimmed ? 0.6 : 1,
+                      transition: 'opacity 0.15s, color 0.15s',
+                    }}
+                  >
+                    <span style={{
+                      width: 10, height: 10, borderRadius: '50%',
+                      background: dimmed ? '#d1d5db' : themeColor(themes, t),
+                      flexShrink: 0, display: 'inline-block',
+                      transition: 'background 0.15s',
+                    }} />
+                    {t}
+                  </button>
+                );
+              })}
+              {selectedTheme && (
+                <button
+                  onClick={() => setSelectedTheme(null)}
+                  style={{
+                    fontSize: 11, cursor: 'pointer', padding: '3px 8px',
+                    borderRadius: 99, border: '1px solid #e5e7eb',
+                    background: 'none', color: '#6b7280',
+                  }}
+                >
+                  Clear
+                </button>
+              )}
             </div>
           </div>
 
