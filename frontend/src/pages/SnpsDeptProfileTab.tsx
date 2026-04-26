@@ -296,7 +296,7 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
     return source
       .filter(r => r.dept_pct != null && r.ps_pct != null)
       .map(r => ({
-        label: r.question_e.replace(/^[A-Z0-9_]+ [-–—]+ /, '').slice(0, isMobile ? 28 : 42),
+        label: r.question_e.replace(/^[A-Z0-9_]+ [-–—]+ /, '').slice(0, isMobile ? 34 : 50),
         delta: Math.round(effectiveDelta(r.dept_pct!, r.ps_pct!, r.theme_e)),
         color: themeColor(themes, r.theme_e),
         question_e: r.question_e,
@@ -569,7 +569,7 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
                   <YAxis
                     type="category"
                     dataKey="label"
-                    width={isMobile ? 160 : 220}
+                    width={isMobile ? 180 : 260}
                     tick={{ fontSize: isMobile ? 10 : 11, fill: '#374151' }}
                     tickLine={false}
                   />
@@ -625,7 +625,7 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
                 return (
                   <button
                     key={t}
-                    onClick={() => { setSelectedTheme(active ? null : t); setViewMode('scatter'); }}
+                    onClick={() => setSelectedTheme(active ? null : t)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 5,
                       fontSize: 11, cursor: 'pointer',
@@ -649,7 +649,7 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
               })}
               {selectedTheme && (
                 <button
-                  onClick={() => { setSelectedTheme(null); setViewMode('scatter'); }}
+                  onClick={() => setSelectedTheme(null)}
                   style={{
                     fontSize: 11, cursor: 'pointer', padding: '3px 8px',
                     borderRadius: 99, border: '1px solid #e5e7eb',
