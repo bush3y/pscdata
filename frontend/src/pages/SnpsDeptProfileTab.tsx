@@ -2,7 +2,7 @@ import { useState, useMemo, useSyncExternalStore } from 'react';
 import {
   ComposedChart, Scatter, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
-  BarChart, Bar, ReferenceLine, Cell,
+  BarChart, Bar, ReferenceLine, Cell, LabelList,
 } from 'recharts';
 import {
   PS_TOTAL,
@@ -296,7 +296,7 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
     return source
       .filter(r => r.dept_pct != null && r.ps_pct != null)
       .map(r => ({
-        label: r.question_e.replace(/^[A-Z0-9_]+ [-–—]+ /, '').slice(0, isMobile ? 20 : 35),
+        label: r.question_e.replace(/^[A-Z0-9_]+ [-–—]+ /, '').slice(0, isMobile ? 28 : 42),
         delta: Math.round(effectiveDelta(r.dept_pct!, r.ps_pct!, r.theme_e)),
         color: themeColor(themes, r.theme_e),
         question_e: r.question_e,
@@ -447,7 +447,10 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
               </div>
               <div style={{ display: 'inline-flex', border: '1px solid #e5e7eb', borderRadius: 4, overflow: 'hidden' }}>
                 {(['scatter', 'bar'] as const).map((m, i) => (
-                  <button key={m} onClick={() => setViewMode(m)} style={{
+                  <button key={m} onClick={() => {
+                    setViewMode(m);
+                    if (m === 'bar' && !selectedTheme && themes.length > 0) setSelectedTheme(themes[0]);
+                  }} style={{
                     fontSize: 11, padding: '3px 10px', border: 'none', cursor: 'pointer',
                     borderLeft: i > 0 ? '1px solid #e5e7eb' : 'none',
                     background: viewMode === m ? '#1d3557' : '#fff',
@@ -470,7 +473,8 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
             <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>
               {viewMode === 'scatter'
                 ? <>Each dot is one survey question. Above the dashed line = dept performs better than PS Total. Color = theme. <span style={{ color: '#b45309' }}>Biases and barriers scores are inverted so that above the line always means better.</span></>
-                : <>Each bar shows the dept vs PS gap per question (positive = dept better). Biases and barriers deltas are inverted. {selectedTheme ? `Showing ${barData.length} questions in ${selectedTheme}.` : `Showing all ${barData.length} questions.`}</>
+                : <>Each bar shows the dept vs PS gap for <strong>{selectedTheme}</strong> questions. Positive = dept better. Biases and barriers deltas are inverted.</>
+
               }
             </div>
 
@@ -552,32 +556,33 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
               </ResponsiveContainer>
             )}
 
-            {/* Bar chart — sorted delta view */}
-            {viewMode === 'bar' && (
-              <ResponsiveContainer width="100%" height={Math.max(300, barData.length * (isMobile ? 20 : 24))}>
+            {/* Bar chart — sorted delta view; scoped to selected theme */}
+            {viewMode === 'bar' && selectedTheme && (
+              <ResponsiveContainer width="100%" height={Math.max(200, barData.length * (isMobile ? 32 : 36))}>
                 <BarChart
                   data={barData}
                   layout="vertical"
-                  margin={{ top: 4, right: isMobile ? 8 : 32, bottom: 16, left: 0 }}
+                  margin={{ top: 4, right: isMobile ? 48 : 64, bottom: 4, left: 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-                  <XAxis
-                    type="number"
-                    tickFormatter={(v: number) => `${v > 0 ? '+' : ''}${v}`}
-                    tick={{ fontSize: 10, fill: '#6b7280' }}
-                    label={{ value: 'Dept vs PS (pts)', position: 'insideBottom', offset: -8, fontSize: 11, fill: '#6b7280' }}
-                  />
+                  <XAxis type="number" hide />
                   <YAxis
                     type="category"
                     dataKey="label"
-                    width={isMobile ? 130 : 190}
-                    tick={{ fontSize: isMobile ? 9 : 10, fill: '#374151' }}
+                    width={isMobile ? 160 : 220}
+                    tick={{ fontSize: isMobile ? 10 : 11, fill: '#374151' }}
                     tickLine={false}
                   />
                   <ReferenceLine x={0} stroke="#d1d5db" strokeWidth={1.5} strokeDasharray="4 2" />
-                  <Bar dataKey="delta" isAnimationActive={false} radius={[0, 2, 2, 0]}>
+                  <Bar dataKey="delta" isAnimationActive={false} radius={[0, 3, 3, 0]} barSize={isMobile ? 16 : 20}>
+                    <LabelList
+                      dataKey="delta"
+                      position="right"
+                      formatter={(v: number) => `${v > 0 ? '+' : ''}${v}`}
+                      style={{ fontSize: isMobile ? 10 : 11, fill: '#374151', fontWeight: 600 }}
+                    />
                     {barData.map((entry, i) => (
-                      <Cell key={i} fill={entry.delta >= 0 ? entry.color : `${entry.color}99`} />
+                      <Cell key={i} fill={entry.delta >= 0 ? entry.color : `${entry.color}88`} />
                     ))}
                   </Bar>
                   <Tooltip content={(props: any) => {
