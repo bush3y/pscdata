@@ -2,6 +2,7 @@ import { useState, useMemo, useSyncExternalStore } from 'react';
 import {
   ComposedChart, Scatter, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
+  BarChart, Bar, ReferenceLine, Cell, LabelList,
 } from 'recharts';
 import {
   PS_TOTAL,
@@ -39,6 +40,87 @@ const NEGATIVE_THEMES = new Set(['Biases and barriers']);
 // For negative themes, dept having a lower % is better, so we flip the sign.
 function effectiveDelta(deptPct: number, benchPct: number, themeE: string): number {
   return NEGATIVE_THEMES.has(themeE) ? benchPct - deptPct : deptPct - benchPct;
+}
+
+// ── Short bar-chart labels ────────────────────────────────────────────────────
+
+// Static map for top-level questions whose text is too long or starts identically.
+const SHORT_LABELS: Record<string, string> = {
+  // Political activities & non-partisanship
+  POL_01A: 'Aware of rights & responsibilities',
+  POL_01B: 'Know candidacy rules',
+  POL_01C: 'Know where to find guidance',
+  POL_01D: 'Understand political neutrality duties',
+  POL_01E: 'Org keeps me informed',
+  POL_01F: 'Work unit is politically impartial',
+  POL_01G: 'Aware of political expression risks',
+  POL_02:  'Engaged in political activities',
+  // Biases & barriers
+  ADV_01C: 'Know PSC resources for biases',
+  ADV_01D: 'Received sufficient bias training',
+  MAN_02B: 'Equipped to mitigate biases',
+  STA_13:  'Staffing processes conducted fairly',
+  STA_14A: 'Experienced bias in staffing',
+  // Priority entitlements
+  ADV_01A: 'Priority candidates considered properly',
+  ADV_01B: 'Equipped to support priority persons',
+  MAN_03:  'Aware of priority responsibilities',
+  MAN_05A: 'Priority persons are valuable candidates',
+  MAN_05B: 'Priority persons meet requirements',
+  // Merit, fairness & transparency
+  HMN_08A: 'Appointees meet performance expectations',
+  HMN_08B: 'Felt pressure to select a candidate',
+  MAN_02E: 'Comfortable explaining staffing decisions',
+  STA_01A: 'Staffing activities are done fairly',
+  STA_01B: 'We hire the best candidates',
+  STA_01C: 'Manager keeps me informed',
+  STA_01D: 'Job requirements reflect actual needs',
+  STA_01E: 'Selection process is transparent',
+  STA_01F: 'Non-advertised appointments done fairly',
+  // Org policies & practices
+  MAN_01:  'Exercise managerial discretion',
+  MAN_02A: 'Aware of HR staffing policies',
+  MAN_02C: 'Staffing options reflect org needs',
+  MAN_02D: 'Staffing options enable recruitment goals',
+  // Staffing advice & support
+  HMN_10A: 'Satisfied with staffing services',
+  HMN_10C: 'Receive adequate staffing support',
+  // Staffing – Employees
+  COM_10A: 'Org undertook innovative staffing',
+  STA_04:  'Acted in a position (4+ months)',
+  STA_05:  'Participated in promotion process',
+  STA_07:  'Participated in other staffing process',
+  STA_08:  'Withdrew from a staffing process',
+  STA_09A: 'Was screened into a process',
+  STA_09B: 'Was placed in pool or appointed',
+  STA_09C: 'Received acting or assignment',
+  STA_10:  'Used AI in staffing process',
+  STA_12A: 'Needed assessment accommodation',
+  STA_12B: 'Accommodation measures provided',
+  STA_12D: 'Satisfied with accommodation',
+  STA_12E: 'Needed but did not request accommodation',
+  STA_15A: 'Aware of informal discussion option',
+  STA_15B: 'Aware of PSC investigation option',
+  STA_15C: 'Aware of PSST recourse option',
+  STA_16A: 'Would use recourse if irregularities found',
+  STA_17:  'D&I initiatives positively affect staffing',
+  // Staffing – Hiring managers
+  HMN_02:  'Type of staffing actions used',
+  HMN_06:  'Used AI in staffing process (mgr)',
+};
+
+// For sub-question series the distinguishing text follows the "? " in the full question.
+// e.g. "Which prohibited grounds...? Race" → "Race"
+//      "In what part of process...? Job application" → "Job application"
+function getShortLabel(code: string, fullText: string): string {
+  if (SHORT_LABELS[code]) return SHORT_LABELS[code];
+  const withoutCode = fullText.replace(/^[A-Z0-9_]+\s*[-–—]+\s*/, '');
+  const qIdx = withoutCode.lastIndexOf('? ');
+  if (qIdx >= 0) {
+    const suffix = withoutCode.slice(qIdx + 2).trim();
+    if (suffix.length > 0) return suffix.length <= 48 ? suffix : suffix.slice(0, 45) + '…';
+  }
+  return withoutCode.slice(0, 35);
 }
 
 // ── Dept selector ─────────────────────────────────────────────────────────────
@@ -295,6 +377,7 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
     return source
       .filter(r => r.dept_pct != null && r.ps_pct != null)
       .map(r => ({
+        label: getShortLabel(r.question, r.question_e),
         delta: Math.round(effectiveDelta(r.dept_pct!, r.ps_pct!, r.theme_e)),
         color: themeColor(themes, r.theme_e),
         question_e: r.question_e,
@@ -554,66 +637,60 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
               </ResponsiveContainer>
             )}
 
-            {/* Bar chart — custom HTML rows so labels are individually scrollable */}
-            {viewMode === 'bar' && selectedTheme && (() => {
-              const maxAbs = Math.max(...barData.map(d => Math.abs(d.delta)), 1);
-              const barH = isMobile ? 18 : 22;
-              return (
-                <div style={{ marginTop: 4 }}>
-                  {barData.map(entry => {
-                    const pct = Math.abs(entry.delta) / maxAbs * 44; // max 44% each side
-                    const isPos = entry.delta >= 0;
-                    const color = isPos ? entry.color : `${entry.color}99`;
-                    const deltaStr = `${isPos ? '+' : ''}${entry.delta}`;
-                    const textColor = isPos ? '#15803d' : '#dc2626';
+            {/* Bar chart — sorted delta view; scoped to selected theme */}
+            {viewMode === 'bar' && selectedTheme && (
+              <ResponsiveContainer width="100%" height={Math.max(200, barData.length * (isMobile ? 28 : 32))}>
+                <BarChart
+                  data={barData}
+                  layout="vertical"
+                  margin={{ top: 4, right: isMobile ? 44 : 56, bottom: 4, left: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
+                  <XAxis type="number" hide />
+                  <YAxis
+                    type="category"
+                    dataKey="label"
+                    width={isMobile ? 148 : 210}
+                    tick={{ fontSize: isMobile ? 10 : 11, fill: '#374151' }}
+                    tickLine={false}
+                  />
+                  <ReferenceLine x={0} stroke="#d1d5db" strokeWidth={1.5} strokeDasharray="4 2" />
+                  <Bar dataKey="delta" isAnimationActive={false} radius={[0, 3, 3, 0]} barSize={isMobile ? 14 : 18}>
+                    <LabelList
+                      dataKey="delta"
+                      position="right"
+                      formatter={(v: number) => `${v > 0 ? '+' : ''}${v}`}
+                      style={{ fontSize: isMobile ? 10 : 11, fill: '#374151', fontWeight: 600 }}
+                    />
+                    {barData.map((entry, i) => (
+                      <Cell key={i} fill={entry.delta >= 0 ? entry.color : `${entry.color}88`} />
+                    ))}
+                  </Bar>
+                  <Tooltip content={(props: any) => {
+                    if (!props.active || !props.payload?.length) return null;
+                    const d = props.payload[0].payload;
+                    const isNeg = NEGATIVE_THEMES.has(d.theme_e);
                     return (
-                      <div key={entry.question} style={{
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        marginBottom: 4, minHeight: barH + 4,
+                      <div style={{
+                        background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
+                        padding: '9px 13px', fontSize: 12, maxWidth: 280,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.10)',
                       }}>
-                        {/* Scrollable label — hold and slide to read full text */}
-                        <div style={{
-                          width: isMobile ? 130 : 200, flexShrink: 0,
-                          overflowX: 'auto', whiteSpace: 'nowrap',
-                          fontSize: isMobile ? 10 : 11, color: '#374151',
-                          WebkitOverflowScrolling: 'touch',
-                          scrollbarWidth: 'none',
-                          msOverflowStyle: 'none',
-                        }}>
-                          {entry.question_e.replace(/^[A-Z0-9_]+ [-–—]+ /, '')}
+                        <div style={{ fontWeight: 600, color: '#111827', marginBottom: 4, lineHeight: 1.4 }}>
+                          {d.question_e.replace(/^[A-Z0-9_]+\s*[-–—]+\s*/, '')}
                         </div>
-
-                        {/* Bar track */}
-                        <div style={{ flex: 1, position: 'relative', height: barH, display: 'flex', alignItems: 'center' }}>
-                          {/* Centre reference line */}
-                          <div style={{
-                            position: 'absolute', left: '50%', top: 0, bottom: 0,
-                            width: 1, background: '#d1d5db',
-                          }} />
-                          {/* Bar */}
-                          <div style={{
-                            position: 'absolute',
-                            height: barH,
-                            borderRadius: isPos ? '0 3px 3px 0' : '3px 0 0 3px',
-                            background: color,
-                            left:  isPos ? '50%' : `${50 - pct}%`,
-                            width: `${pct}%`,
-                          }} />
-                        </div>
-
-                        {/* Delta value */}
-                        <div style={{
-                          width: 32, flexShrink: 0, textAlign: 'right',
-                          fontSize: isMobile ? 10 : 11, fontWeight: 700, color: textColor,
-                        }}>
-                          {deltaStr}
+                        {isNeg && <div style={{ fontSize: 10, color: '#b45309', marginBottom: 4, fontStyle: 'italic' }}>↓ lower = better for this theme</div>}
+                        <div style={{ color: '#374151' }}>{deptLabel}: <strong>{d.dept_pct}%</strong></div>
+                        <div style={{ color: '#6b7280' }}>PS Total: {d.ps_pct}%</div>
+                        <div style={{ color: d.delta >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
+                          {d.delta >= 0 ? `+${d.delta}` : d.delta} pts vs PS
                         </div>
                       </div>
                     );
-                  })}
-                </div>
-              );
-            })()}
+                  }} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
 
             {/* Interaction hint */}
             <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 10, marginBottom: 4, fontStyle: 'italic' }}>
