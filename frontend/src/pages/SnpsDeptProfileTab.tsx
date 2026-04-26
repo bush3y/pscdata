@@ -2,7 +2,6 @@ import { useState, useMemo, useSyncExternalStore } from 'react';
 import {
   ComposedChart, Scatter, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
-  BarChart, Bar, ReferenceLine, Cell, LabelList,
 } from 'recharts';
 import {
   PS_TOTAL,
@@ -296,7 +295,6 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
     return source
       .filter(r => r.dept_pct != null && r.ps_pct != null)
       .map(r => ({
-        label: r.question_e.replace(/^[A-Z0-9_]+ [-–—]+ /, '').slice(0, isMobile ? 34 : 50),
         delta: Math.round(effectiveDelta(r.dept_pct!, r.ps_pct!, r.theme_e)),
         color: themeColor(themes, r.theme_e),
         question_e: r.question_e,
@@ -556,61 +554,66 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
               </ResponsiveContainer>
             )}
 
-            {/* Bar chart — sorted delta view; scoped to selected theme */}
-            {viewMode === 'bar' && selectedTheme && (
-              <ResponsiveContainer width="100%" height={Math.max(200, barData.length * (isMobile ? 32 : 36))}>
-                <BarChart
-                  data={barData}
-                  layout="vertical"
-                  margin={{ top: 4, right: isMobile ? 48 : 64, bottom: 4, left: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-                  <XAxis type="number" hide />
-                  <YAxis
-                    type="category"
-                    dataKey="label"
-                    width={isMobile ? 180 : 260}
-                    tick={{ fontSize: isMobile ? 10 : 11, fill: '#374151' }}
-                    tickLine={false}
-                  />
-                  <ReferenceLine x={0} stroke="#d1d5db" strokeWidth={1.5} strokeDasharray="4 2" />
-                  <Bar dataKey="delta" isAnimationActive={false} radius={[0, 3, 3, 0]} barSize={isMobile ? 16 : 20}>
-                    <LabelList
-                      dataKey="delta"
-                      position="right"
-                      formatter={(v: number) => `${v > 0 ? '+' : ''}${v}`}
-                      style={{ fontSize: isMobile ? 10 : 11, fill: '#374151', fontWeight: 600 }}
-                    />
-                    {barData.map((entry, i) => (
-                      <Cell key={i} fill={entry.delta >= 0 ? entry.color : `${entry.color}88`} />
-                    ))}
-                  </Bar>
-                  <Tooltip content={(props: any) => {
-                    if (!props.active || !props.payload?.length) return null;
-                    const d = props.payload[0].payload;
-                    const isNeg = NEGATIVE_THEMES.has(d.theme_e);
+            {/* Bar chart — custom HTML rows so labels are individually scrollable */}
+            {viewMode === 'bar' && selectedTheme && (() => {
+              const maxAbs = Math.max(...barData.map(d => Math.abs(d.delta)), 1);
+              const barH = isMobile ? 18 : 22;
+              return (
+                <div style={{ marginTop: 4 }}>
+                  {barData.map(entry => {
+                    const pct = Math.abs(entry.delta) / maxAbs * 44; // max 44% each side
+                    const isPos = entry.delta >= 0;
+                    const color = isPos ? entry.color : `${entry.color}99`;
+                    const deltaStr = `${isPos ? '+' : ''}${entry.delta}`;
+                    const textColor = isPos ? '#15803d' : '#dc2626';
                     return (
-                      <div style={{
-                        background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
-                        padding: '9px 13px', fontSize: 12, maxWidth: 280,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.10)',
+                      <div key={entry.question} style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        marginBottom: 4, minHeight: barH + 4,
                       }}>
-                        <div style={{ fontWeight: 600, color: '#111827', marginBottom: 4, lineHeight: 1.4 }}>
-                          {d.question_e.replace(/^[A-Z0-9_]+ --? /, '')}
+                        {/* Scrollable label — hold and slide to read full text */}
+                        <div style={{
+                          width: isMobile ? 130 : 200, flexShrink: 0,
+                          overflowX: 'auto', whiteSpace: 'nowrap',
+                          fontSize: isMobile ? 10 : 11, color: '#374151',
+                          WebkitOverflowScrolling: 'touch',
+                          scrollbarWidth: 'none',
+                          msOverflowStyle: 'none',
+                        }}>
+                          {entry.question_e.replace(/^[A-Z0-9_]+ [-–—]+ /, '')}
                         </div>
-                        {isNeg && <div style={{ fontSize: 10, color: '#b45309', marginBottom: 4, fontStyle: 'italic' }}>↓ lower = better for this theme</div>}
-                        <div style={{ color: '#374151' }}>{deptLabel}: <strong>{d.dept_pct}%</strong></div>
-                        <div style={{ color: '#6b7280' }}>PS Total: {d.ps_pct}%</div>
-                        <div style={{ color: d.delta >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
-                          {d.delta >= 0 ? `+${d.delta}` : d.delta} pts vs PS
+
+                        {/* Bar track */}
+                        <div style={{ flex: 1, position: 'relative', height: barH, display: 'flex', alignItems: 'center' }}>
+                          {/* Centre reference line */}
+                          <div style={{
+                            position: 'absolute', left: '50%', top: 0, bottom: 0,
+                            width: 1, background: '#d1d5db',
+                          }} />
+                          {/* Bar */}
+                          <div style={{
+                            position: 'absolute',
+                            height: barH,
+                            borderRadius: isPos ? '0 3px 3px 0' : '3px 0 0 3px',
+                            background: color,
+                            left:  isPos ? '50%' : `${50 - pct}%`,
+                            width: `${pct}%`,
+                          }} />
                         </div>
-                        <div style={{ color: '#9ca3af', fontSize: 10, marginTop: 4 }}>{d.theme_e}</div>
+
+                        {/* Delta value */}
+                        <div style={{
+                          width: 32, flexShrink: 0, textAlign: 'right',
+                          fontSize: isMobile ? 10 : 11, fontWeight: 700, color: textColor,
+                        }}>
+                          {deltaStr}
+                        </div>
                       </div>
                     );
-                  }} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+                  })}
+                </div>
+              );
+            })()}
 
             {/* Interaction hint */}
             <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 10, marginBottom: 4, fontStyle: 'italic' }}>
