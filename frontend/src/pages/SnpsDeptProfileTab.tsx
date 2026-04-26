@@ -296,7 +296,7 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
     return source
       .filter(r => r.dept_pct != null && r.ps_pct != null)
       .map(r => ({
-        label: r.question_e.replace(/^[A-Z0-9_]+ --? /, '').slice(0, 35),
+        label: r.question_e.replace(/^[A-Z0-9_]+ [-–—]+ /, '').slice(0, isMobile ? 20 : 35),
         delta: Math.round(effectiveDelta(r.dept_pct!, r.ps_pct!, r.theme_e)),
         color: themeColor(themes, r.theme_e),
         question_e: r.question_e,
@@ -554,24 +554,24 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
 
             {/* Bar chart — sorted delta view */}
             {viewMode === 'bar' && (
-              <ResponsiveContainer width="100%" height={Math.max(300, barData.length * 24)}>
+              <ResponsiveContainer width="100%" height={Math.max(300, barData.length * (isMobile ? 20 : 24))}>
                 <BarChart
                   data={barData}
                   layout="vertical"
-                  margin={{ top: 4, right: 32, bottom: 8, left: 4 }}
+                  margin={{ top: 4, right: isMobile ? 8 : 32, bottom: 16, left: 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
                   <XAxis
                     type="number"
                     tickFormatter={(v: number) => `${v > 0 ? '+' : ''}${v}`}
                     tick={{ fontSize: 10, fill: '#6b7280' }}
-                    label={{ value: 'Dept vs PS (pts)', position: 'insideBottom', offset: -4, fontSize: 11, fill: '#6b7280' }}
+                    label={{ value: 'Dept vs PS (pts)', position: 'insideBottom', offset: -8, fontSize: 11, fill: '#6b7280' }}
                   />
                   <YAxis
                     type="category"
                     dataKey="label"
-                    width={190}
-                    tick={{ fontSize: 10, fill: '#374151' }}
+                    width={isMobile ? 130 : 190}
+                    tick={{ fontSize: isMobile ? 9 : 10, fill: '#374151' }}
                     tickLine={false}
                   />
                   <ReferenceLine x={0} stroke="#d1d5db" strokeWidth={1.5} strokeDasharray="4 2" />
