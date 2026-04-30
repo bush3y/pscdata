@@ -7,7 +7,7 @@ import type { IngestLog } from '../types';
 const DATASETS = [
   { key: 'advertisements',    title: 'Public Service Staffing Advertisements' },
   { key: 'staffing_dashboard', title: 'Staffing Dashboard' },
-  { key: 'tbs_population',    title: 'TBS Federal Public Service Statistics' },
+  { key: 'tbs_population',    title: 'TBS Population Data' },
   { key: 'snps',              title: 'Staffing and Non-Partisanship Survey (2021, 2023, 2025)' },
 ];
 
