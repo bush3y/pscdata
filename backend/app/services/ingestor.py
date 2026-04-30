@@ -498,13 +498,10 @@ class DataIngestor:
                         target_table = "snps_questions"
                         is_snps12 = False
                     elif re.search(r"snps.?(?:0[2-9]|1[0-1]|1[6-9]|2[0-4])", check):
-                        # snps02–snps11, snps16–snps24 are cross-tabulation files
-                        # snps12 is handled above (supplement for 2021/2023)
-                        # snps13 is handled above (response profile)
-                        # snps14 is handled above (questions metadata)
-                        # snps15 is the department list — intentionally skipped
-                        target_table = "snps_crosstabs"
-                        is_snps12 = False
+                        # snps02–snps11, snps16–snps24 are cross-tabulation files (~11M rows).
+                        # Skipped: snps_crosstabs is not used by any current feature and
+                        # loading it OOMs small production servers.
+                        continue
                     else:
                         continue
 

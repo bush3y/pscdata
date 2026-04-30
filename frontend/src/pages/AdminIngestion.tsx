@@ -98,11 +98,27 @@ export default function AdminIngestion() {
           cursor: trigger.isPending ? 'not-allowed' : 'pointer',
           fontSize: 15,
           fontWeight: 700,
-          marginBottom: 28,
+          marginBottom: trigger.isError ? 12 : 28,
         }}
       >
         {trigger.isPending ? t('common.loading') : t('ingestion.ingestAll')}
       </button>
+
+      {trigger.isError && (
+        <div style={{
+          color: '#991b1b',
+          fontSize: 13,
+          marginBottom: 20,
+          padding: '10px 14px',
+          background: '#fef2f2',
+          borderRadius: 4,
+          border: '1px solid #fecaca',
+        }}>
+          <strong>Ingest failed to start</strong> —{' '}
+          {trigger.error instanceof Error ? trigger.error.message : 'network error. Check that the backend is running.'}
+          {' '}Please try again.
+        </div>
+      )}
 
       {/* Per-dataset cards */}
       <div

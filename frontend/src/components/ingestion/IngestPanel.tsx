@@ -74,6 +74,21 @@ export default function IngestPanel({ datasetKey, title, lastIngested, status }:
       >
         {trigger.isPending ? t('common.loading') : t('datasets.ingest')}
       </button>
+
+      {trigger.isError && (
+        <div style={{
+          color: '#991b1b',
+          fontSize: 12,
+          marginTop: 8,
+          padding: '6px 10px',
+          background: '#fef2f2',
+          borderRadius: 4,
+          border: '1px solid #fecaca',
+        }}>
+          Failed —{' '}
+          {trigger.error instanceof Error ? trigger.error.message : 'network error'}
+        </div>
+      )}
     </div>
   );
 }

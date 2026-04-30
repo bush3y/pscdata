@@ -15,5 +15,9 @@ export const useIngestTrigger = () => {
     mutationFn: (dataset_keys: string[] | 'all') =>
       client.post('/ingest', { dataset_keys }).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ingest-status'] }),
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      console.error('Ingest trigger failed:', msg);
+    },
   });
 };
