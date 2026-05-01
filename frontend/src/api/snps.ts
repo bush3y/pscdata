@@ -87,6 +87,7 @@ export interface SnpsDeptProfileRow {
   category_e: string;
   question_e: string;
   question_f: string;
+  question_type: string | null;
   dept_pct: number | null;
   ps_pct: number | null;
   peer_avg_pct: number | null;

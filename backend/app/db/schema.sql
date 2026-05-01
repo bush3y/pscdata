@@ -359,15 +359,17 @@ CREATE TABLE IF NOT EXISTS snps_responses (
 );
 
 CREATE TABLE IF NOT EXISTS snps_questions (
-    year        INTEGER,
-    question    VARCHAR,
-    category_e  VARCHAR,
-    category_f  VARCHAR,
-    theme_e     VARCHAR,
-    theme_f     VARCHAR,
-    question_e  VARCHAR,
-    question_f  VARCHAR,
-    _loaded_at  TIMESTAMP DEFAULT current_timestamp
+    year            INTEGER,
+    question        VARCHAR,
+    category_e      VARCHAR,
+    category_f      VARCHAR,
+    theme_e         VARCHAR,
+    theme_f         VARCHAR,
+    question_e      VARCHAR,
+    question_f      VARCHAR,
+    question_type   VARCHAR,
+    include_scatter BOOLEAN,
+    _loaded_at      TIMESTAMP DEFAULT current_timestamp
 );
 
 CREATE TABLE IF NOT EXISTS snps_response_profile (
@@ -398,3 +400,6 @@ CREATE TABLE IF NOT EXISTS snps_crosstabs (
     total_w_resp       DOUBLE,
     _loaded_at         TIMESTAMP DEFAULT current_timestamp
 );
+
+ALTER TABLE snps_questions ADD COLUMN IF NOT EXISTS question_type VARCHAR;
+ALTER TABLE snps_questions ADD COLUMN IF NOT EXISTS include_scatter BOOLEAN;

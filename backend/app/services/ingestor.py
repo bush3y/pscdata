@@ -579,7 +579,63 @@ class DataIngestor:
                 except Exception as exc:  # noqa: BLE001
                     logger.exception("Failed to derive demographics for year=%d: %s", year, exc)
 
+            # After all years: detect question_type and populate include_scatter
+            try:
+                self._populate_question_metadata(conn)
+                logger.info("Populated question_type and include_scatter for all snps_questions rows")
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Failed to populate question metadata: %s", exc)
+
         return IngestResult(dataset_key=dataset_key, status="success", rows_loaded=total_rows)
+
+    def _populate_question_metadata(self, conn) -> None:  # noqa: ANN001
+        """Detect question_type from response values and set include_scatter.
+
+        question_type values:
+          likert      — response options include Likert scale labels (great/moderate/minimal/not at all)
+          yesno       — exactly Yes + No (2 values)
+          multiselect — response options include Selected / Not selected
+          categorical — has response data but doesn't match above patterns
+          unknown     — no response data found
+
+        include_scatter = TRUE for likert and yesno questions outside the
+        Demographic characteristics theme that are not sub-questions (codes
+        with two or more underscore-separated numeric segments like HMN_04_1).
+        """
+        # Step 1: classify question_type from response values
+        conn.execute("""
+            UPDATE snps_questions
+            SET question_type = (
+                SELECT CASE
+                    WHEN SUM(CASE WHEN question_value_e IN (
+                        'To a great extent', 'To a moderate extent',
+                        'To a minimal extent', 'Not at all'
+                    ) THEN 1 ELSE 0 END) > 0 THEN 'likert'
+                    WHEN SUM(CASE WHEN question_value_e IN ('Selected', 'Not selected')
+                    THEN 1 ELSE 0 END) > 0 THEN 'multiselect'
+                    WHEN COUNT(DISTINCT question_value_e) = 2
+                         AND SUM(CASE WHEN question_value_e = 'Yes' THEN 1 ELSE 0 END) > 0
+                         AND SUM(CASE WHEN question_value_e = 'No'  THEN 1 ELSE 0 END) > 0
+                    THEN 'yesno'
+                    WHEN COUNT(*) > 0 THEN 'categorical'
+                    ELSE 'unknown'
+                END
+                FROM snps_responses r
+                WHERE r.question = snps_questions.question
+                  AND r.year    = snps_questions.year
+            )
+        """)
+
+        # Step 2: include_scatter — likert or yesno, non-demographic, non-sub-question
+        # Sub-questions have an extra numeric segment: e.g. HMN_04_1 (length - replace count > 1 underscore pair)
+        conn.execute("""
+            UPDATE snps_questions
+            SET include_scatter = (
+                question_type IN ('likert', 'yesno')
+                AND (theme_e IS NULL OR theme_e != 'Demographic characteristics')
+                AND length(question) - length(replace(question, '_', '')) <= 1
+            )
+        """)
 
     def _process_snps12_supplement(
         self,

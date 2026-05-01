@@ -234,14 +234,29 @@ async def get_snps_dept_profile(dept: str, year: int | None = None) -> list[dict
     # Question metadata — browse-year-then-latest-year fallback (same as /questions)
     meta_rows = _q("SELECT MAX(year) AS y FROM snps_questions")
     meta_year = meta_rows[0]["y"] if meta_rows else year
+    # When include_scatter is populated (post-ingest), filter by it.
+    # When NULL (pre-migration or before re-ingest), fall back to all non-demographic questions
+    # so the chart still shows something until the next ingest run.
+    scatter_filter = (
+        "AND (q.include_scatter = TRUE OR q.include_scatter IS NULL)"
+        " AND (q.theme_e IS NULL OR q.theme_e != 'Demographic characteristics')"
+    )
+    scatter_filter2 = (
+        "AND (q2.include_scatter = TRUE OR q2.include_scatter IS NULL)"
+        " AND (q2.theme_e IS NULL OR q2.theme_e != 'Demographic characteristics')"
+    )
     questions_meta = _q(
-        "SELECT q.question, q.category_e, q.category_f, q.theme_e, q.theme_f, q.question_e, q.question_f "
+        "SELECT q.question, q.category_e, q.category_f, q.theme_e, q.theme_f, q.question_e, q.question_f, "
+        "       q.question_type, q.include_scatter "
         "FROM snps_questions q "
-        "WHERE q.year = ? AND EXISTS (SELECT 1 FROM snps_responses r WHERE r.question=q.question AND r.year=?) "
+        f"WHERE q.year = ? {scatter_filter} "
+        "  AND EXISTS (SELECT 1 FROM snps_responses r WHERE r.question=q.question AND r.year=?) "
         "UNION "
-        "SELECT q2.question, q2.category_e, q2.category_f, q2.theme_e, q2.theme_f, q2.question_e, q2.question_f "
+        "SELECT q2.question, q2.category_e, q2.category_f, q2.theme_e, q2.theme_f, q2.question_e, q2.question_f, "
+        "       q2.question_type, q2.include_scatter "
         "FROM snps_questions q2 "
-        "WHERE q2.year = ? AND EXISTS (SELECT 1 FROM snps_responses r WHERE r.question=q2.question AND r.year=?) "
+        f"WHERE q2.year = ? {scatter_filter2} "
+        "  AND EXISTS (SELECT 1 FROM snps_responses r WHERE r.question=q2.question AND r.year=?) "
         "  AND NOT EXISTS (SELECT 1 FROM snps_questions qb WHERE qb.year=? AND qb.question=q2.question) "
         "ORDER BY question",
         [year, year, meta_year, year, year],
@@ -257,7 +272,7 @@ async def get_snps_dept_profile(dept: str, year: int | None = None) -> list[dict
 
     result = []
     for meta in questions_meta:
-        if meta["theme_e"] == "Demographic characteristics":
+        if meta.get("include_scatter") is False:
             continue
         q_code = meta["question"]
         rows_q = dept_data.get(q_code, [])
@@ -274,6 +289,7 @@ async def get_snps_dept_profile(dept: str, year: int | None = None) -> list[dict
             "category_e":    meta["category_e"],
             "question_e":    meta["question_e"],
             "question_f":    meta["question_f"],
+            "question_type": meta.get("question_type"),
             "dept_pct":      dp,
             "ps_pct":        ps_by_q.get(q_code),
             "peer_avg_pct":  round(sum(peer_vals) / len(peer_vals), 1) if peer_vals else None,
