@@ -302,22 +302,33 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
     [data]
   );
 
+  // questionItemsByTheme must be before scatterByTheme — scatter uses it for grouping
+  const questionItemsByTheme = useMemo(() => {
+    const map = new Map<string, QuestionItem[]>();
+    for (const t of themes) {
+      map.set(t, buildQuestionItems(data.filter(r => r.theme_e === t), t));
+    }
+    return map;
+  }, [themes, data]);
+
+  // Scatter shows standalone questions only — sub-question groups are excluded.
+  // Groups (multi-select options, Likert batteries, etc.) don't have a meaningful
+  // dept-vs-PS interpretation at the individual sub-question level and clutter the chart.
+  // The theme table below handles grouped sub-question detail.
   const scatterByTheme = useMemo(() =>
     themes.map(t => {
       const isNeg = NEGATIVE_THEMES.has(t);
-      return {
-        theme: t,
-        color: themeColor(themes, t),
-        points: data
-          .filter(r => r.theme_e === t && r.dept_pct != null && r.ps_pct != null)
-          .map(r => ({
-            ...r,
-            x: isNeg ? 100 - r.ps_pct! : r.ps_pct!,
-            y: isNeg ? 100 - r.dept_pct! : r.dept_pct!,
-          })),
-      };
+      const items = questionItemsByTheme.get(t) ?? [];
+      const points = items
+        .filter(item => item.type === 'question')
+        .flatMap(item => {
+          const r = (item as { type: 'question'; row: SnpsDeptProfileRow }).row;
+          if (r.dept_pct == null || r.ps_pct == null) return [];
+          return [{ ...r, x: isNeg ? 100 - r.ps_pct : r.ps_pct, y: isNeg ? 100 - r.dept_pct : r.dept_pct }];
+        });
+      return { theme: t, color: themeColor(themes, t), points };
     }),
-    [data, themes]
+    [themes, questionItemsByTheme]
   );
 
   const prevThemeAvg = useMemo(() => {
@@ -360,14 +371,6 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
       };
     }).sort((a, b) => (b.deptAvg ?? 0) - (a.deptAvg ?? 0));
   }, [themes, data, prevThemeAvg]);
-
-  const questionItemsByTheme = useMemo(() => {
-    const map = new Map<string, QuestionItem[]>();
-    for (const t of themes) {
-      map.set(t, buildQuestionItems(data.filter(r => r.theme_e === t), t));
-    }
-    return map;
-  }, [themes, data]);
 
   // Outlier detection — top 3 above and bottom 3 below the parity line by effective delta
   const outlierCodes = useMemo(() => {
