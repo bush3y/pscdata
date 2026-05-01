@@ -156,6 +156,7 @@ function ProfileTooltip({ active, payload, dept }: {
 }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
+  if (!d.question_e) return null; // parity line points have no question data
   const isNeg = NEGATIVE_THEMES.has(d.theme_e);
   const effDelta = d.dept_pct != null && d.ps_pct != null
     ? Math.round(effectiveDelta(d.dept_pct, d.ps_pct, d.theme_e)) : null;
