@@ -276,8 +276,12 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
     });
   }
 
-  // Current year profile
-  const { data: data = [], isLoading } = useSnpsDeptProfile(dept, effectiveYear);
+  // Current year profile — exclude demographic questions from the profile view
+  const { data: rawData = [], isLoading } = useSnpsDeptProfile(dept, effectiveYear);
+  const data = useMemo(
+    () => rawData.filter(r => r.theme_e !== 'Demographic characteristics'),
+    [rawData]
+  );
 
   // Previous year for YoY delta
   const prevYear = useMemo(() => {
@@ -285,7 +289,11 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
     const idx = years.indexOf(effectiveYear);
     return idx > 0 ? years[idx - 1] : null;
   }, [years, effectiveYear]);
-  const { data: prevData = [] } = useSnpsDeptProfile(dept, prevYear);
+  const { data: rawPrevData = [] } = useSnpsDeptProfile(dept, prevYear);
+  const prevData = useMemo(
+    () => rawPrevData.filter(r => r.theme_e !== 'Demographic characteristics'),
+    [rawPrevData]
+  );
 
   // Derived structures
   const themes = useMemo(() =>
