@@ -149,12 +149,10 @@ const PARITY_LINE = [{ x: 0, y: 0 }, { x: 100, y: 100 }];
 
 // ── Scatter tooltip ───────────────────────────────────────────────────────────
 
-function ProfileTooltip({ active, payload, dept, coordinate, viewBox }: {
+function ProfileTooltip({ active, payload, dept }: {
   active?: boolean;
   payload?: Array<{ payload: SnpsDeptProfileRow & { x: number; y: number } }>;
   dept: string;
-  coordinate?: { x: number; y: number };
-  viewBox?: { x: number; y: number; width: number; height: number };
 }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
@@ -163,15 +161,11 @@ function ProfileTooltip({ active, payload, dept, coordinate, viewBox }: {
   const effDelta = d.dept_pct != null && d.ps_pct != null
     ? Math.round(effectiveDelta(d.dept_pct, d.ps_pct, d.theme_e)) : null;
 
-  // Flip tooltip to the left when the dot is in the right 55% of the chart
-  const flipLeft = coordinate && viewBox && coordinate.x > viewBox.width * 0.55;
-
   return (
     <div style={{
       background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
       padding: '9px 13px', fontSize: 12, maxWidth: 240,
       boxShadow: '0 4px 12px rgba(0,0,0,0.10)',
-      ...(flipLeft ? { transform: 'translateX(calc(-100% - 16px))' } : {}),
     }}>
       <div style={{ fontWeight: 600, color: '#111827', marginBottom: 4, lineHeight: 1.4 }}>
         {d.question_e.replace(/^[A-Z0-9_]+ --? /, '')}
@@ -646,6 +640,7 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
                   })}
                   <Tooltip
                     content={(props: any) => <ProfileTooltip {...props} dept={deptLabel} />}
+                    position={isMobile ? { x: 8, y: 8 } : undefined}
                     allowEscapeViewBox={{ x: false, y: false }}
                   />
                 </ComposedChart>
