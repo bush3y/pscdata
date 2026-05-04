@@ -112,8 +112,9 @@ const SHORT_LABELS: Record<string, string> = {
 // For sub-question series the distinguishing text follows the "? " in the full question.
 // e.g. "Which prohibited grounds...? Race" → "Race"
 //      "In what part of process...? Job application" → "Job application"
-function getShortLabel(code: string, fullText: string): string {
+function getShortLabel(code: string, fullText: string | null | undefined): string {
   if (SHORT_LABELS[code]) return SHORT_LABELS[code];
+  if (!fullText) return code;
   const withoutCode = fullText.replace(/^[A-Z0-9_]+\s*[-–—]+\s*/, '');
   const qIdx = withoutCode.lastIndexOf('? ');
   if (qIdx >= 0) {
@@ -154,9 +155,10 @@ function ProfileTooltip({ active, payload, dept }: {
   payload?: Array<{ payload: SnpsDeptProfileRow & { x: number; y: number } }>;
   dept: string;
 }) {
+  try {
   if (!active || !payload?.length) return null;
-  const d = payload[0].payload;
-  if (!d.question_e) return null; // parity line points have no question data
+  const d = payload[0]?.payload;
+  if (!d?.question_e) return null; // parity line points have no question data
   const isNeg = NEGATIVE_THEMES.has(d.theme_e);
   const effDelta = d.dept_pct != null && d.ps_pct != null
     ? Math.round(effectiveDelta(d.dept_pct, d.ps_pct, d.theme_e)) : null;
@@ -190,6 +192,7 @@ function ProfileTooltip({ active, payload, dept }: {
       </div>
     </div>
   );
+  } catch { return null; }
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -236,7 +239,7 @@ function buildQuestionItems(rows: SnpsDeptProfileRow[], theme: string): Question
       const psVals   = subRows.map(r => r.ps_pct).filter((v): v is number => v != null);
       const avgDept  = deptVals.length ? Math.round(deptVals.reduce((a, b) => a + b, 0) / deptVals.length) : null;
       const avgPs    = psVals.length   ? Math.round(psVals.reduce((a, b) => a + b, 0) / psVals.length)   : null;
-      const label = subRows[0].question_e.replace(/^[A-Z0-9_]+ --? /, '');
+      const label = (subRows[0].question_e ?? '').replace(/^[A-Z0-9_]+ --? /, '');
       const vsPs = avgDept != null && avgPs != null
         ? (NEGATIVE_THEMES.has(theme) ? avgPs - avgDept : avgDept - avgPs)
         : null;
@@ -418,7 +421,7 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
     const rows = data.filter(r => r.theme_e === selectedTheme && r.dept_pct != null && r.ps_pct != null);
     if (rows.length === 0) return null;
     const scored = rows.map(r => ({
-      label: r.question_e.replace(/^[A-Z0-9_]+ --? /, '').slice(0, 40),
+      label: (r.question_e ?? '').replace(/^[A-Z0-9_]+ --? /, '').slice(0, 40),
       delta: Math.round(effectiveDelta(r.dept_pct!, r.ps_pct!, r.theme_e)),
     })).sort((a, b) => b.delta - a.delta);
     const deptVals = rows.map(r => r.dept_pct!);
@@ -677,26 +680,29 @@ export default function SnpsDeptProfileTab({ dept, onDeptChange, years }: Props)
                     ))}
                   </Bar>
                   <Tooltip content={(props: any) => {
-                    if (!props.active || !props.payload?.length) return null;
-                    const d = props.payload[0].payload;
-                    const isNeg = NEGATIVE_THEMES.has(d.theme_e);
-                    return (
-                      <div style={{
-                        background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
-                        padding: '9px 13px', fontSize: 12, maxWidth: 280,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.10)',
-                      }}>
-                        <div style={{ fontWeight: 600, color: '#111827', marginBottom: 4, lineHeight: 1.4 }}>
-                          {d.question_e.replace(/^[A-Z0-9_]+\s*[-–—]+\s*/, '')}
+                    try {
+                      if (!props.active || !props.payload?.length) return null;
+                      const d = props.payload[0]?.payload;
+                      if (!d) return null;
+                      const isNeg = NEGATIVE_THEMES.has(d.theme_e);
+                      return (
+                        <div style={{
+                          background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
+                          padding: '9px 13px', fontSize: 12, maxWidth: 280,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.10)',
+                        }}>
+                          <div style={{ fontWeight: 600, color: '#111827', marginBottom: 4, lineHeight: 1.4 }}>
+                            {(d.question_e ?? '').replace(/^[A-Z0-9_]+\s*[-–—]+\s*/, '')}
+                          </div>
+                          {isNeg && <div style={{ fontSize: 10, color: '#b45309', marginBottom: 4, fontStyle: 'italic' }}>↓ lower = better for this theme</div>}
+                          <div style={{ color: '#374151' }}>{deptLabel}: <strong>{d.dept_pct}%</strong></div>
+                          <div style={{ color: '#6b7280' }}>PS Total: {d.ps_pct}%</div>
+                          <div style={{ color: d.delta >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
+                            {d.delta >= 0 ? `+${d.delta}` : d.delta} pts vs PS
+                          </div>
                         </div>
-                        {isNeg && <div style={{ fontSize: 10, color: '#b45309', marginBottom: 4, fontStyle: 'italic' }}>↓ lower = better for this theme</div>}
-                        <div style={{ color: '#374151' }}>{deptLabel}: <strong>{d.dept_pct}%</strong></div>
-                        <div style={{ color: '#6b7280' }}>PS Total: {d.ps_pct}%</div>
-                        <div style={{ color: d.delta >= 0 ? '#15803d' : '#dc2626', fontWeight: 600 }}>
-                          {d.delta >= 0 ? `+${d.delta}` : d.delta} pts vs PS
-                        </div>
-                      </div>
-                    );
+                      );
+                    } catch { return null; }
                   }} />
                 </BarChart>
               </ResponsiveContainer>
